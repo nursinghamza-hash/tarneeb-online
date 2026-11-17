@@ -1,0 +1,15 @@
+name: tarneeb_online
+description: لعبة طرنيب أونلاين مستقلة
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  socket_io_client: ^2.0.3+1
+
+flutter:
+  uses-material-design: true
