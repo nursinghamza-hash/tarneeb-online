@@ -362,7 +362,6 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _startGame() => widget.socket.emit('start_game');
-  void _selectPartner(int seat) => widget.socket.emit('select_partner', {'roomCode': widget.roomCode, 'partnerSeat': seat});
   void _selectDealMode(String mode) => widget.socket.emit('select_deal_mode', {'roomCode': widget.roomCode, 'mode': mode});
   void _cutDeck(int cutAt) {
     if (_phase != 'cutting' || (_state['cutSeat'] as num?)?.toInt() != _mySeat) return;
@@ -806,16 +805,10 @@ class _TableScreenState extends State<TableScreen> {
           Text('شارك الرقم مع أصدقائك • اللاعبون: $count / 4', style: const TextStyle(color: Colors.white70, fontSize: 12)),
           const SizedBox(height: 10),
           if (_isHost) ...[
-            const Text('اختر شريكك', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [1, 2, 3].map((seat) => ChoiceChip(
-              label: Text(_playerName(seat), style: const TextStyle(fontSize: 11)),
-              selected: _partnerSeat == seat,
-              onSelected: _players.length > seat && _players[seat] != null ? (_) => _selectPartner(seat) : null,
-              selectedColor: kGold,
-              backgroundColor: Colors.black26,
-              labelStyle: TextStyle(color: _partnerSeat == seat ? kInk : Colors.white70),
-            )).toList()),
+            const Text('توزيع الفرق', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
+            Text('فريقك: أنت + ${_playerName(2)} (المقعد المقابل)', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Text('الخصوم: ${_playerName(1)} + ${_playerName(3)}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
             const SizedBox(height: 9),
             const Text('طريقة التوزيع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
@@ -826,12 +819,12 @@ class _TableScreenState extends State<TableScreen> {
             ]),
             const SizedBox(height: 8),
             ElevatedButton(
-              onPressed: count == 4 && _partnerSeat != null ? _startGame : null,
+              onPressed: count == 4 ? _startGame : null,
               style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
               child: const Text('ابدأ اللعب'),
             ),
           ] else
-            Text(_partnerSeat == null ? 'بانتظار صاحب الطاولة لاختيار الشريك وطريقة التوزيع' : 'شريك صاحب الطاولة: ${_playerName(_partnerSeat!)}',
+            Text('شريك صاحب الطاولة (المقعد المقابل): ${_playerName(2)}',
               textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 12)),
         ]),
       );
