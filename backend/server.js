@@ -113,7 +113,14 @@ function startTurnTimer(room) {
 function startRound(room) {
   clearTurnTimer(room);
   const deck = makeDeck();
-  room.hands = [0, 1, 2, 3].map(seat => sorted(deck.slice(seat * 13, (seat + 1) * 13)));
+  // Deal one card at a time, starting with the player to the dealer's right.
+  // This preserves the real-table dealing order instead of dealing four blocks.
+  room.hands = [[], [], [], []];
+  for (let i = 0; i < deck.length; i++) {
+    const seat = (room.dealerSeat + 1 + i) % 4;
+    room.hands[seat].push(deck[i]);
+  }
+  room.hands = room.hands.map(sorted);
   room.tricks = [0, 0];
   room.currentTrick = [];
   room.bid = null;
