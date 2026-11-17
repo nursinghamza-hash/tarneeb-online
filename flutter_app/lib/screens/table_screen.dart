@@ -46,6 +46,9 @@ class _TableScreenState extends State<TableScreen> {
   Timer? _clock;
 
   int get _mySeat => widget.mySeat;
+  int? get _partnerSeat => (_state['partnerSeat'] as num?)?.toInt();
+  String get _dealMode => (_state['dealMode'] ?? 'random').toString();
+  int get _myTeam => (_mySeat == 0 || _partnerSeat == _mySeat) ? 0 : 1;
   int get _turnSeat => (_state['turnSeat'] as num?)?.toInt() ?? -1;
   String get _phase => (_state['phase'] ?? 'waiting').toString();
   String get _status => (_state['status'] ?? 'waiting').toString();
@@ -70,6 +73,8 @@ class _TableScreenState extends State<TableScreen> {
     s.on('room_error', _onNotice);
     s.on('reaction', _onReaction);
     s.on('rematch_votes', _onRematchVotes);
+    s.on('report_debug_result', _onDebugHands);
+    s.on('report_ack', _onReportAck);
     // Re-announce this seat after listeners are attached so no initial state is missed.
     s.emit('join_room', {
       'roomCode': widget.roomCode,
@@ -106,6 +111,8 @@ class _TableScreenState extends State<TableScreen> {
     s.off('room_error');
     s.off('reaction');
     s.off('rematch_votes');
+    s.off('report_debug_result');
+    s.off('report_ack');
     super.dispose();
   }
 
@@ -116,6 +123,8 @@ class _TableScreenState extends State<TableScreen> {
       _players = (map['players'] as List?) ?? [];
       _state['targetScore'] = map['targetScore'];
       _state['status'] = map['status'];
+      _state['partnerSeat'] = map['partnerSeat'];
+      _state['dealMode'] = map['dealMode'];
     });
   }
 
@@ -158,12 +167,102 @@ class _TableScreenState extends State<TableScreen> {
     setState(() => _rematchVotes = (data as List).map((e) => (e as num).toInt()).toList());
   }
 
+  void _onReportAck(dynamic data) {
+    if (!mounted) return;
+    final message = data is Map ? (data['message'] ?? 'تم استلام البلاغ') : 'تم استلام البلاغ';
+    _onNotice(message);
+  }
+
+  void _onDebugHands(dynamic data) {
+    if (!mounted || data is! Map) return;
+    final hands = (data['hands'] as List?) ?? const [];
+    if (hands.isEmpty) {
+      _onNotice('لا توجد أوراق منافسين مكشوفة في هذه المرحلة');
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: kPanel,
+          title: const Text('أوراق الفريق المنافس', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: hands.map((raw) {
+                final item = Map<String, dynamic>.from(raw as Map);
+                final cards = (item['cards'] as List?) ?? const [];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${item['name'] ?? _playerName((item['seat'] as num).toInt())}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 5),
+                    SizedBox(height: 46, child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: cards.map((card) => PlayingCardWidget(
+                        card: _cardModel(card), isMini: true, isPlayable: false,
+                      )).toList()),
+                    )),
+                  ]),
+                );
+              }).toList()),
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق'))],
+        ),
+      ),
+    );
+  }
+
+  void _openReportDialog() {
+    final controller = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: kPanel,
+          title: const Text('إبلاغ', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLines: 3,
+            maxLength: 500,
+            style: const TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'اكتب مشكلتك',
+              hintStyle: const TextStyle(color: Colors.white54),
+              filled: true, fillColor: Colors.black26,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ElevatedButton(
+              onPressed: () {
+                final message = controller.text.trim();
+                if (message.isEmpty) return;
+                Navigator.pop(ctx);
+                widget.socket.emit('submit_report', {'roomCode': widget.roomCode, 'message': message});
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
+              child: const Text('إرسال'),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(controller.dispose);
+  }
+
   void _copyCode() {
     Clipboard.setData(ClipboardData(text: widget.roomCode));
     _onNotice('تم نسخ رقم الطاولة');
   }
 
   void _startGame() => widget.socket.emit('start_game');
+  void _selectPartner(int seat) => widget.socket.emit('select_partner', {'roomCode': widget.roomCode, 'partnerSeat': seat});
+  void _selectDealMode(String mode) => widget.socket.emit('select_deal_mode', {'roomCode': widget.roomCode, 'mode': mode});
   void _cutDeck(int cutAt) {
     if (_phase != 'cutting' || (_state['cutSeat'] as num?)?.toInt() != _mySeat) return;
     _feedback();
@@ -318,25 +417,35 @@ class _TableScreenState extends State<TableScreen> {
     ]);
   }
 
-  Widget _reactionBar() => Container(
-    padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 8),
-    decoration: BoxDecoration(color: Colors.black.withOpacity(.25), borderRadius: BorderRadius.circular(16)),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: _emojis.map((emoji) => InkWell(
-        onTap: () => _sendEmoji(emoji),
-        borderRadius: BorderRadius.circular(30),
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: .92, end: 1),
-            duration: const Duration(milliseconds: 500),
-            curve: Curves.elasticOut,
-            builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
-            child: Text(emoji, style: const TextStyle(fontSize: 25)),
-          ),
+  void _openReactions() {
+    showModalBottomSheet<void>(
+      context: context, backgroundColor: kPanel, isScrollControlled: false,
+      builder: (ctx) => SafeArea(child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        child: Wrap(alignment: WrapAlignment.spaceEvenly, spacing: 10, runSpacing: 8,
+          children: _emojis.map((emoji) => InkWell(
+            onTap: () { Navigator.pop(ctx); _sendEmoji(emoji); },
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(padding: const EdgeInsets.all(6), child: Text(emoji, style: const TextStyle(fontSize: 26))),
+          )).toList(),
         ),
-      )).toList(),
+      )),
+    );
+  }
+
+  Widget _reactionButton() => Align(
+    alignment: Alignment.centerRight,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(10, 0, 12, 5),
+      child: InkWell(
+        onTap: _openReactions,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 38, height: 34,
+          decoration: BoxDecoration(color: Colors.black.withOpacity(.28), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white12)),
+          child: const Icon(Icons.emoji_emotions_outlined, color: kGold, size: 19),
+        ),
+      ),
     ),
   );
 
@@ -364,7 +473,7 @@ class _TableScreenState extends State<TableScreen> {
             runSpacing: 4,
             children: _trick.map((item) {
               final m = Map<String, dynamic>.from(item as Map);
-              return PlayingCardWidget(card: _cardModel(m['card']), isMini: true, isPlayable: false);
+              return PlayingCardWidget(card: _cardModel(m['card']), isPlayable: false);
             }).toList(),
           ),
         ),
@@ -440,59 +549,45 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   Widget _handArea() {
-    if (_hand.isEmpty) return const SizedBox(height: 10);
+    if (_hand.isEmpty) return const SizedBox(height: 8);
     return Container(
-      margin: const EdgeInsets.fromLTRB(9, 0, 9, 3),
-      padding: const EdgeInsets.fromLTRB(5, 6, 5, 3),
-      decoration: BoxDecoration(color: Colors.black.withOpacity(.23), borderRadius: BorderRadius.circular(16)),
+      margin: const EdgeInsets.fromLTRB(8, 0, 8, 2),
+      padding: const EdgeInsets.fromLTRB(5, 5, 5, 2),
+      decoration: BoxDecoration(color: Colors.black.withOpacity(.23), borderRadius: BorderRadius.circular(13)),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Row(children: [
           const Text('أوراقك', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
           const Spacer(),
           Text('${_hand.length} ورقة', style: const TextStyle(color: kGold, fontSize: 10)),
         ]),
-        const SizedBox(height: 3),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            const cardWidth = 42.0;
-            const cardHeight = 64.0;
-            final count = _hand.length;
-            final availableWidth = constraints.maxWidth;
-            final step = count <= 1
-                ? cardWidth
-                : ((availableWidth - cardWidth) / (count - 1))
-                    .clamp(18.0, cardWidth)
-                    .toDouble();
-            final handWidth = cardWidth + (count - 1) * step;
-
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: handWidth,
-                height: cardHeight,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: List.generate(count, (index) {
-                    final raw = _hand[index];
-                    return Positioned(
-                      left: index * step,
-                      top: 0,
-                      child: PlayingCardWidget(
-                        card: _cardModel(raw),
-                        isCompact: true,
-                        isLegal: _isLegalCard(raw),
-                        onTap: _myTurn && _phase == 'playing'
-                            ? () => _playCard(raw)
-                            : null,
-                        isPlayable: _myTurn && _phase == 'playing',
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            );
-          },
-        ),
+        const SizedBox(height: 4),
+        LayoutBuilder(builder: (context, constraints) {
+          const cardWidth = 64.0;
+          const cardHeight = 100.0;
+          final count = _hand.length;
+          final availableWidth = constraints.maxWidth;
+          final step = count <= 1 ? cardWidth : ((availableWidth - cardWidth) / (count - 1)).clamp(23.0, cardWidth).toDouble();
+          final handWidth = cardWidth + (count - 1) * step;
+          final contentWidth = handWidth < availableWidth ? availableWidth : handWidth;
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: contentWidth, height: cardHeight,
+              child: Stack(clipBehavior: Clip.none, children: List.generate(count, (index) {
+                final raw = _hand[index];
+                return Positioned(
+                  right: index * step, top: 0,
+                  child: PlayingCardWidget(
+                    card: _cardModel(raw), isHand: true,
+                    isLegal: _isLegalCard(raw),
+                    onTap: _myTurn && _phase == 'playing' ? () => _playCard(raw) : null,
+                    isPlayable: _myTurn && _phase == 'playing',
+                  ),
+                );
+              })),
+            ),
+          );
+        }),
       ]),
     );
   }
@@ -513,12 +608,34 @@ class _TableScreenState extends State<TableScreen> {
           Text('رقم الطاولة: ${widget.roomCode}', style: const TextStyle(color: kGold, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 5),
           Text('شارك الرقم مع أصدقائك • اللاعبون: $count / 4', style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          const SizedBox(height: 7),
-          if (_isHost) ElevatedButton(
-            onPressed: count == 4 ? _startGame : null,
-            style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
-            child: const Text('ابدأ اللعب'),
-          ) else const Text('بانتظار صاحب الطاولة لبدء اللعب', style: TextStyle(color: Colors.white54)),
+          const SizedBox(height: 10),
+          if (_isHost) ...[
+            const Text('اختر شريكك', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [1, 2, 3].map((seat) => ChoiceChip(
+              label: Text(_playerName(seat), style: const TextStyle(fontSize: 11)),
+              selected: _partnerSeat == seat,
+              onSelected: _players.length > seat && _players[seat] != null ? (_) => _selectPartner(seat) : null,
+              selectedColor: kGold,
+              backgroundColor: Colors.black26,
+              labelStyle: TextStyle(color: _partnerSeat == seat ? kInk : Colors.white70),
+            )).toList()),
+            const SizedBox(height: 9),
+            const Text('طريقة التوزيع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
+            Wrap(spacing: 7, children: [
+              ChoiceChip(label: const Text('عشوائي'), selected: _dealMode == 'random', selectedColor: kGold, onSelected: (_) => _selectDealMode('random')),
+              ChoiceChip(label: const Text('قصّ الشدّة'), selected: _dealMode == 'cut', selectedColor: kGold, onSelected: (_) => _selectDealMode('cut')),
+            ]),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: count == 4 && _partnerSeat != null ? _startGame : null,
+              style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
+              child: const Text('ابدأ اللعب'),
+            ),
+          ] else
+            Text(_partnerSeat == null ? 'بانتظار صاحب الطاولة لاختيار الشريك وطريقة التوزيع' : 'شريك صاحب الطاولة: ${_playerName(_partnerSeat!)}',
+              textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 12)),
         ]),
       );
     }
@@ -540,12 +657,13 @@ class _TableScreenState extends State<TableScreen> {
           if (isMyCut) ...[
             const SizedBox(height: 10),
             Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [
-              _cutChoice('بعد أول مجموعتين / المنتصف', 26),
-              _cutChoice('بعد أول مجموعة', 13),
-              _cutChoice('بعد ثالث مجموعة', 39),
+              _cutChoice('أول مجموعة', 13),
+              _cutChoice('وسط الشدّة', 26),
+              _cutChoice('آخر مجموعة', 39),
             ]),
             const SizedBox(height: 8),
             Text('أو اختر رقم القص: $_customCutAt', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            const Text('بعد القص يبدأ التوزيع من يمين الموزّع', style: TextStyle(color: Colors.white54, fontSize: 10)),
             Slider(value: _customCutAt.toDouble(), min: 1, max: 51, divisions: 50, activeColor: kGold, label: '$_customCutAt', onChanged: (v) => setState(() => _customCutAt = v.round())),
             SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => _cutDeck(_customCutAt), style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk), child: const Text('تأكيد القص والتوزيع'))),
           ] else
@@ -571,7 +689,7 @@ class _TableScreenState extends State<TableScreen> {
     }
     if (_status == 'finished') {
       final winner = _state['winnerTeam'];
-      final text = winner == null ? 'تعادل!' : (winner == (_mySeat % 2) ? 'مبروك! فريقك فاز 🏆' : 'انتهت المباراة، الفريق الآخر فاز');
+      final text = winner == null ? 'تعادل!' : (winner == _myTeam ? 'مبروك! فريقك فاز 🏆' : 'انتهت المباراة، الفريق الآخر فاز');
       return Container(
         margin: const EdgeInsets.all(10), padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: kPanel, borderRadius: BorderRadius.circular(14), border: Border.all(color: kGold)),
@@ -617,6 +735,7 @@ class _TableScreenState extends State<TableScreen> {
                     decoration: BoxDecoration(color: _secondsLeft <= 5 ? Colors.red.withOpacity(.2) : kGold.withOpacity(.15), borderRadius: BorderRadius.circular(20)),
                     child: Text('$_secondsLeft ث', style: TextStyle(color: _secondsLeft <= 5 ? Colors.redAccent : kGold, fontWeight: FontWeight.bold)),
                   ),
+                IconButton(onPressed: _openReportDialog, tooltip: 'إبلاغ', icon: const Icon(Icons.flag_outlined, color: Colors.white70)),
                 IconButton(onPressed: _openSettings, icon: const Icon(Icons.more_horiz, color: Colors.white70)),
               ]),
             ),
@@ -629,16 +748,16 @@ class _TableScreenState extends State<TableScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(children: [
-                  Text('لنا: ${_tricks[0]}', style: const TextStyle(color: kGold, fontSize: 11)),
+                  Text('لنا: ${_tricks[_myTeam]}', style: const TextStyle(color: kGold, fontSize: 11)),
                   const Spacer(),
                   Text(bid == null ? 'الطلب' : 'الطلب ${bid['amount']} ${bid['symbol']}', style: const TextStyle(color: Colors.white70, fontSize: 11)),
                   const Spacer(),
-                  Text('لهم: ${_tricks[1]}', style: const TextStyle(color: kGold, fontSize: 11)),
+                  Text('لهم: ${_tricks[1 - _myTeam]}', style: const TextStyle(color: kGold, fontSize: 11)),
                 ]),
               ),
             _biddingPanel(),
             _handArea(),
-            Padding(padding: const EdgeInsets.fromLTRB(12, 2, 12, 7), child: _reactionBar()),
+            _reactionButton(),
             if (_phase == 'playing' && _status == 'playing' && _myTurn)
               const Padding(padding: EdgeInsets.only(bottom: 3), child: Text('دورك الآن — اختر ورقة', style: TextStyle(color: kGold, fontSize: 11, fontWeight: FontWeight.bold))),
           ]),
