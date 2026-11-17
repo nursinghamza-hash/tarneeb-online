@@ -40,6 +40,7 @@ class _TableScreenState extends State<TableScreen> {
   int _selectedBid = 7;
   int _secondsLeft = 15;
   int _customCutAt = 18;
+  String? _selectedCardCode;
   bool _disconnected = false;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
@@ -141,6 +142,8 @@ class _TableScreenState extends State<TableScreen> {
     setState(() {
       _state = incoming;
       _players = (_state['players'] as List?) ?? _players;
+      final handCodes = _hand.map((card) => (card as Map)['code'].toString()).toSet();
+      if (_selectedCardCode != null && !handCodes.contains(_selectedCardCode)) _selectedCardCode = null;
       _secondsLeft = 15;
     });
   }
@@ -305,6 +308,7 @@ class _TableScreenState extends State<TableScreen> {
     if (!_myTurn || _phase != 'playing' || !_isLegalCard(card)) return;
     if (_soundEnabled) SystemSound.play(SystemSoundType.click);
     if (_vibrationEnabled) HapticFeedback.mediumImpact();
+    setState(() => _selectedCardCode = null);
     widget.socket.emit('play_card', {
       'roomCode': widget.roomCode, 'cardCode': card['code'].toString(),
     });
@@ -467,14 +471,41 @@ class _TableScreenState extends State<TableScreen> {
         Positioned(left: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 3, child: _playerBadge(1, '🂠')))),
         Positioned(right: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 1, child: _playerBadge(3, '🂠')))),
         Center(
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 5,
-            runSpacing: 4,
-            children: _trick.map((item) {
-              final m = Map<String, dynamic>.from(item as Map);
-              return PlayingCardWidget(card: _cardModel(m['card']), isPlayable: false);
-            }).toList(),
+          child: DragTarget<dynamic>(
+            onAcceptWithDetails: (details) => _playCard(details.data),
+            builder: (context, candidateData, rejectedData) {
+              final hovering = candidateData.isNotEmpty;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                width: 280,
+                height: 112,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: hovering ? kGold.withOpacity(.14) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: hovering ? kGold : Colors.white.withOpacity(.07),
+                    width: hovering ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 5,
+                      runSpacing: 3,
+                      children: _trick.map((item) {
+                        final m = Map<String, dynamic>.from(item as Map);
+                        return PlayingCardWidget(card: _cardModel(m['card']), isPlayable: false);
+                      }).toList(),
+                    ),
+                    if (_trick.isEmpty && _myTurn && _phase == 'playing')
+                      const Text('اسحب الورقة إلى منتصف الطاولة', style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  ],
+                ),
+              );
+            },
           ),
         ),
         Positioned(bottom: 7, left: 0, right: 0, child: Center(
@@ -563,10 +594,10 @@ class _TableScreenState extends State<TableScreen> {
         const SizedBox(height: 4),
         LayoutBuilder(builder: (context, constraints) {
           const cardWidth = 64.0;
-          const cardHeight = 100.0;
+          const cardHeight = 106.0;
           final count = _hand.length;
           final availableWidth = constraints.maxWidth;
-          final step = count <= 1 ? cardWidth : ((availableWidth - cardWidth) / (count - 1)).clamp(23.0, cardWidth).toDouble();
+          final step = count <= 1 ? cardWidth : ((availableWidth - cardWidth) / (count - 1)).clamp(22.0, cardWidth).toDouble();
           final handWidth = cardWidth + (count - 1) * step;
           final contentWidth = handWidth < availableWidth ? availableWidth : handWidth;
           return SingleChildScrollView(
@@ -574,15 +605,38 @@ class _TableScreenState extends State<TableScreen> {
             child: SizedBox(
               width: contentWidth, height: cardHeight,
               child: Stack(clipBehavior: Clip.none, children: List.generate(count, (layerIndex) {
+                // Draw left-side cards first, then overlay toward the right so every index remains visible.
                 final index = count - 1 - layerIndex;
                 final raw = _hand[index];
+                final card = _cardModel(raw);
+                final code = card.code;
+                final legal = _isLegalCard(raw);
+                final canPlay = _myTurn && _phase == 'playing' && legal;
+                final selected = _selectedCardCode == code;
+                final face = PlayingCardWidget(
+                  card: card,
+                  isHand: true,
+                  isSelected: selected,
+                  isLegal: legal,
+                  isPlayable: canPlay,
+                  onTap: canPlay ? () => setState(() => _selectedCardCode = selected ? null : code) : null,
+                  onDoubleTap: canPlay ? () => _playCard(raw) : null,
+                );
                 return Positioned(
-                  right: index * step, top: 0,
-                  child: PlayingCardWidget(
-                    card: _cardModel(raw), isHand: true,
-                    isLegal: _isLegalCard(raw),
-                    onTap: _myTurn && _phase == 'playing' ? () => _playCard(raw) : null,
-                    isPlayable: _myTurn && _phase == 'playing',
+                  right: index * step,
+                  top: selected ? 0 : 9,
+                  child: Transform.translate(
+                    offset: Offset(0, selected ? -9 : 0),
+                    child: Draggable<dynamic>(
+                      data: raw,
+                      maxSimultaneousDrags: canPlay ? 1 : 0,
+                      feedback: Material(
+                        color: Colors.transparent,
+                        child: PlayingCardWidget(card: card, isHand: true, isSelected: true, isPlayable: false),
+                      ),
+                      childWhenDragging: Opacity(opacity: .35, child: face),
+                      child: face,
+                    ),
                   ),
                 );
               })),
@@ -760,7 +814,7 @@ class _TableScreenState extends State<TableScreen> {
             _handArea(),
             _reactionButton(),
             if (_phase == 'playing' && _status == 'playing' && _myTurn)
-              const Padding(padding: EdgeInsets.only(bottom: 3), child: Text('دورك الآن — اختر ورقة', style: TextStyle(color: kGold, fontSize: 11, fontWeight: FontWeight.bold))),
+              const Padding(padding: EdgeInsets.only(bottom: 3), child: Text('دورك الآن — اضغط مرتين أو اسحب الورقة إلى الوسط', style: TextStyle(color: kGold, fontSize: 10, fontWeight: FontWeight.bold))),
           ]),
         ),
       ),
