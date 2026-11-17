@@ -90,6 +90,7 @@ function stateFor(room, seat) {
     winnerTeam: room.winnerTeam,
     lastRound: room.lastRound,
     myToken: me ? me.token : null,
+    cutSeat: room.cutSeat ?? null,
   };
 }
 function broadcastState(room) {
@@ -110,9 +111,10 @@ function startTurnTimer(room) {
     }
   }, TURN_SECONDS * 1000);
 }
-function startRound(room) {
+function startRound(room, preparedDeck = null) {
   clearTurnTimer(room);
-  const deck = makeDeck();
+  const deck = preparedDeck || makeDeck();
+  room.cutSeat = null;
   // Deal one card at a time, starting with the player to the dealer's right.
   // This preserves the real-table dealing order instead of dealing four blocks.
   room.hands = [[], [], [], []];
@@ -307,7 +309,14 @@ function startGame(room, player) {
   if (room.players.some(p => !p)) return io.to(player.id).emit('room_error', 'تحتاج الطاولة إلى 4 لاعبين لبدء اللعب');
   room.scores = [0, 0];
   room.roundNumber = 1;
-  startRound(room);
+  room.preparedDeck = makeDeck();
+  room.cutSeat = (room.dealerSeat + 3) % 4;
+  room.phase = 'cutting';
+  room.status = 'playing';
+  room.turnSeat = room.cutSeat;
+  room.deadline = null;
+  broadcastState(room);
+  sendRoom(room);
 }
 io.on('connection', socket => {
   console.log(`[socket] connected: ${socket.id} transport=${socket.conn.transport.name}`);
@@ -322,6 +331,18 @@ io.on('connection', socket => {
     if (!room) return;
     startGame(room, playerFor(room, socket));
   });
+  socket.on('cut_deck', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    if (!room || !player || room.phase !== 'cutting' || player.seat !== room.cutSeat || !room.preparedDeck) return;
+    const cutAt = Number(payload?.cutAt);
+    if (!Number.isInteger(cutAt) || cutAt < 1 || cutAt > 51) return;
+    const deck = room.preparedDeck;
+    const cutDeck = deck.slice(cutAt).concat(deck.slice(0, cutAt));
+    room.preparedDeck = null;
+    startRound(room, cutDeck);
+  });
+
   socket.on('submit_bid', payload => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
     const player = room && playerFor(room, socket);
