@@ -22,7 +22,7 @@ Reference: https://blog.jawaker.com/en/tarneeb-rules-en/
 
 ## Implemented on `feature/jawaker-tarneeb-parity-v1`
 
-- Seat geometry: 0 south, 1 east/right, 2 north, 3 west/left.
+- Server seat geometry: 0 south, 1 east/right, 2 north, 3 west/left. Flutter rotates these positions around the current local player so the local hand remains at the bottom for any seat.
 - Deal and bidding begin to the dealer's right and proceed counterclockwise.
 - Centralized rules helpers for seat order, card dealing, follow-suit legality, trick winner, and scoring.
 - Random one-card-at-a-time deal and optional 4-3-3-3 batch deal.
