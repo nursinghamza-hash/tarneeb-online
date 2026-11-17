@@ -39,6 +39,7 @@ class _TableScreenState extends State<TableScreen> {
   String _selectedSuit = 'SPADES';
   int _selectedBid = 7;
   int _secondsLeft = 15;
+  int _customCutAt = 18;
   bool _disconnected = false;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
@@ -163,6 +164,11 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _startGame() => widget.socket.emit('start_game');
+  void _cutDeck(int cutAt) {
+    if (_phase != 'cutting' || (_state['cutSeat'] as num?)?.toInt() != _mySeat) return;
+    _feedback();
+    widget.socket.emit('cut_deck', {'roomCode': widget.roomCode, 'cutAt': cutAt});
+  }
   void _feedback() {
     if (_soundEnabled) SystemSound.play(SystemSoundType.click);
     if (_vibrationEnabled) HapticFeedback.selectionClick();
@@ -491,6 +497,12 @@ class _TableScreenState extends State<TableScreen> {
     );
   }
 
+  Widget _cutChoice(String label, int cutAt) => OutlinedButton(
+    onPressed: () => _cutDeck(cutAt),
+    style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white30), padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7)),
+    child: Text(label, style: const TextStyle(fontSize: 10)),
+  );
+
   Widget _waitingOrResult() {
     if (_status == 'waiting') {
       final count = _players.where((p) => p != null).length;
@@ -507,6 +519,38 @@ class _TableScreenState extends State<TableScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
             child: const Text('ابدأ اللعب'),
           ) else const Text('بانتظار صاحب الطاولة لبدء اللعب', style: TextStyle(color: Colors.white54)),
+        ]),
+      );
+    }
+    if (_phase == 'cutting' && _status == 'playing') {
+      final cutSeat = (_state['cutSeat'] as num?)?.toInt() ?? -1;
+      final isMyCut = cutSeat == _mySeat;
+      return Container(
+        margin: const EdgeInsets.all(10), padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(color: kPanel, borderRadius: BorderRadius.circular(16), border: Border.all(color: kGold.withOpacity(.35))),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('قصّ الشدّة قبل التوزيع', style: TextStyle(color: kGold, fontSize: 17, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 5),
+          Text(isMyCut ? 'دورك تقصّ الشدّة — اختر مكان القص' : 'بانتظار ${_playerName(cutSeat)} ليقصّ الشدّة', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          const SizedBox(height: 10),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: List.generate(4, (i) => Column(children: [
+            Container(width: 42, height: 58, decoration: BoxDecoration(color: const Color(0xFF173D32), border: Border.all(color: kGold, width: 1.2), borderRadius: BorderRadius.circular(6)), child: const Center(child: Icon(Icons.style, color: Colors.white70, size: 22))),
+            const SizedBox(height: 3), Text('13 ورقة', style: TextStyle(color: Colors.white54, fontSize: 9)),
+          ]))),
+          if (isMyCut) ...[
+            const SizedBox(height: 10),
+            Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [
+              _cutChoice('بعد أول مجموعتين', 26),
+              _cutChoice('من المنتصف', 26),
+              _cutChoice('بعد أول مجموعة', 13),
+              _cutChoice('بعد ثالث مجموعة', 39),
+            ]),
+            const SizedBox(height: 8),
+            Text('أو اختر رقم القص: $_customCutAt', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Slider(value: _customCutAt.toDouble(), min: 1, max: 51, divisions: 50, activeColor: kGold, label: '$_customCutAt', onChanged: (v) => setState(() => _customCutAt = v.round())),
+            SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => _cutDeck(_customCutAt), style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk), child: const Text('تأكيد القص والتوزيع'))),
+          ] else
+            const Padding(padding: EdgeInsets.only(top: 10), child: Text('سيبدأ التوزيع تلقائيًا بعد القص', style: TextStyle(color: Colors.white54, fontSize: 11))),
         ]),
       );
     }
