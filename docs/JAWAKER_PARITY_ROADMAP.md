@@ -41,7 +41,7 @@ The server default follows Jawaker's published scoring: declared Kaboot +26, una
 The pure rules helper accepts custom options for house rules. The values requested in the supplied brief (declared Kaboot +16 and sweep +14) can be represented as:
 `scoreRound(scores, tricks, bidTeam, bidAmount, { declaredKabootPoints: 16, sweepPoints: 14 })`
 
-That custom option has not yet been exposed in the room-creation UI or passed from room settings into live server rooms.
+The room-creation screen now exposes both presets, sends the selected preset to the authoritative server, and the server applies it for round scoring.
 
 ## Developer-only 0099 setup
 
@@ -56,7 +56,7 @@ Only the host of a room can use the diagnostics. Do not enable this for public c
 - Full AI practice mode (partner and two opponents). The current online table requires four real players; the HTML mock-up's bot characters are not yet part of the multiplayer server.
 - Animated card dealing and complete turn/trick animations; the fourth card now has a short reveal delay, but this is not yet a full animation suite.
 - Persistent player profiles, ratings, leaderboards, clubs, friends, voice chat, gifts, tournaments, abuse/report moderation and reconnection-safe persistent rooms.
-- Room-level selectable house scoring variants.
+- Additional scoring regression tests cover both selectable presets.
 - End-to-end multiplayer tests with four actual socket clients, plus device testing on Android and iOS.
 - Production deployment verification and final signed release APK.
 
