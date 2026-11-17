@@ -13,7 +13,7 @@ class TarneebOnlineApp extends StatelessWidget {
   Widget build(BuildContext context) {
     const gold = Color(0xFFE2BD68);
     return MaterialApp(
-      title: 'طرنيب أونلاين',
+      title: 'تحدي الطرنيب',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
