@@ -219,7 +219,17 @@ class _TableScreenState extends State<TableScreen> {
               }).toList()),
             ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق'))],
+          actions: [
+            if (data['mode'] == 'host-development-diagnostic')
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  widget.socket.emit('debug_boost_hand', {'roomCode': widget.roomCode});
+                },
+                child: const Text('🔥 تعزيز يدي (قبل اللعب فقط)', style: TextStyle(color: kGold)),
+              ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          ],
         ),
       ),
     );
