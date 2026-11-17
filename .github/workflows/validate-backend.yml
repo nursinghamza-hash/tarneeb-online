@@ -1,0 +1,25 @@
+name: Validate Tarneeb Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/validate-backend.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/validate-backend.yml"
+
+jobs:
+  node-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check backend JavaScript syntax
+        run: node --check backend/server.js
