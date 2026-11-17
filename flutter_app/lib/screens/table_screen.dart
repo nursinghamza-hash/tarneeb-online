@@ -29,7 +29,7 @@ class _TableScreenState extends State<TableScreen> {
     'SPADES': '♠', 'HEARTS': '♥', 'DIAMONDS': '♦', 'CLUBS': '♣',
   };
   static const Map<String, String> _suitNames = {
-    'SPADES': 'بستوني', 'HEARTS': 'كبة', 'DIAMONDS': 'ديناري', 'CLUBS': 'سنك',
+    'SPADES': 'بستوني', 'HEARTS': 'كبة', 'DIAMONDS': 'ديناري', 'CLUBS': 'سباتي',
   };
 
   Map<String, dynamic> _state = {};
