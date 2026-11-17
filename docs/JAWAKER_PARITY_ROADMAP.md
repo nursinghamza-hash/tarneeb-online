@@ -31,6 +31,7 @@ Reference: https://blog.jawaker.com/en/tarneeb-rules-en/
 - Server keeps the fourth card visible briefly so all clients can render the completed trick before it resolves.
 - Public played-card history powers the card tracker. Opponents' unplayed cards are not sent in ordinary game state.
 - A persistent in-room round history records the contract, trump suit, trick counts, bid result, and before/after team scores.
+- Optional AI practice rooms fill the three other seats with bots named Al-Zaeem, Abu Shehab and Al-Aqeed; bots use a separate heuristic module for bidding and legal cooperative card play. Normal friend rooms remain four-human rooms.
 - 0099 diagnostics are gated by server environment settings and restricted to the room host. Optional hand boost is developer-only and allowed only before the first card is played.
 - Regression tests cover table orientation, deal order, batch distribution, bidding order, forced opening, irreversible pass, follow-suit, trick winner, scoring and invalid inputs.
 - Pull request CI runs backend syntax/rules tests and Flutter analysis/Android build.
