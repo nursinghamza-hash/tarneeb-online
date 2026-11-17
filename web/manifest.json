@@ -1,6 +1,6 @@
 {
-  "name": "طرنيب أونلاين - Tarneeb Online",
-  "short_name": "طرنيب",
+  "name": "تحدي الطرنيب",
+  "short_name": "تحدي الطرنيب",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
