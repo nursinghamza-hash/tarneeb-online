@@ -196,7 +196,7 @@ class _TableScreenState extends State<TableScreen> {
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           backgroundColor: kPanel,
-          title: const Text('أوراق الفريق المنافس', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
+          title: const Text('أوراق اللاعبين الآخرين • وضع فحص التطوير', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
@@ -268,6 +268,88 @@ class _TableScreenState extends State<TableScreen> {
   void _copyCode() {
     Clipboard.setData(ClipboardData(text: widget.roomCode));
     _onNotice('تم نسخ رقم الطاولة');
+  }
+
+  String _trackerRankLabel(int rank) {
+    switch (rank) {
+      case 14: return 'A';
+      case 13: return 'K';
+      case 12: return 'Q';
+      case 11: return 'J';
+      default: return rank.toString();
+    }
+  }
+
+  void _openCardTracker() {
+    final playedCodes = <String>{};
+    for (final raw in (_state['playedCards'] as List?) ?? const []) {
+      if (raw is Map && raw['card'] is Map) playedCodes.add((raw['card'] as Map)['code'].toString());
+    }
+    final myCodes = _hand.map((raw) => (raw as Map)['code'].toString()).toSet();
+    const suits = ['SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS'];
+    const ranks = [14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2];
+
+    showModalBottomSheet<void>(
+      context: context, isScrollControlled: true, backgroundColor: kPanel,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(ctx).size.height * .72,
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Row(children: [
+                  const Icon(Icons.style_rounded, color: kGold),
+                  const SizedBox(width: 8),
+                  const Expanded(child: Text('حافظ الورق ومتابعة الأكلات', style: TextStyle(color: kGold, fontSize: 16, fontWeight: FontWeight.bold))),
+                  IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close, color: Colors.white70)),
+                ]),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Text('الأخضر: معك • الرمادي: لُعبت • الأبيض: ورقة غير مكشوفة', style: TextStyle(color: Colors.white60, fontSize: 10)),
+              ),
+              const SizedBox(height: 8),
+              Expanded(child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                children: suits.map((suit) {
+                  final symbol = _symbols[suit]!;
+                  final red = suit == 'HEARTS' || suit == 'DIAMONDS';
+                  final playedCount = ranks.where((rank) => playedCodes.contains('$rank-$suit')).length;
+                  final myCount = ranks.where((rank) => myCodes.contains('$rank-$suit')).length;
+                  final unknownCount = 13 - playedCount - myCount;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10), padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(color: Colors.black.withOpacity(.22), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white12)),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Text('$symbol ${_suitNames[suit]}', style: TextStyle(color: red ? Colors.redAccent : Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        const Spacer(),
+                        Text('معك $myCount • لُعبت $playedCount • مخفية $unknownCount', style: const TextStyle(color: Colors.white60, fontSize: 9)),
+                      ]),
+                      const SizedBox(height: 7),
+                      Wrap(spacing: 5, runSpacing: 5, children: ranks.map((rank) {
+                        final code = '$rank-$suit';
+                        final wasPlayed = playedCodes.contains(code);
+                        final inMyHand = myCodes.contains(code);
+                        final bg = inMyHand ? const Color(0xFF146047) : wasPlayed ? Colors.white10 : Colors.white;
+                        final fg = inMyHand ? Colors.white : wasPlayed ? Colors.white30 : (red ? Colors.red : const Color(0xFF17202A));
+                        return Container(
+                          width: 34, height: 38, alignment: Alignment.center,
+                          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6), border: Border.all(color: inMyHand ? kGold : Colors.white12)),
+                          child: Text('${_trackerRankLabel(rank)}$symbol', style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 10, decoration: wasPlayed ? TextDecoration.lineThrough : TextDecoration.none)),
+                        );
+                      }).toList()),
+                    ]),
+                  );
+                }).toList(),
+              )),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 
   void _startGame() => widget.socket.emit('start_game');
@@ -494,8 +576,8 @@ class _TableScreenState extends State<TableScreen> {
           child: Opacity(opacity: .08, child: Icon(Icons.style, size: 110, color: kGold)),
         )),
         Positioned(top: 8, left: 0, right: 0, child: Center(child: _playerBadge(2, '👑'))),
-        Positioned(left: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 3, child: _playerBadge(1, '🂠')))),
-        Positioned(right: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 1, child: _playerBadge(3, '🂠')))),
+        Positioned(right: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 1, child: _playerBadge(1, '🂠')))),
+        Positioned(left: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 3, child: _playerBadge(3, '🂠')))),
         Center(
           child: DragTarget<Map<String, dynamic>>(
             onAcceptWithDetails: (details) => _playCard(details.data),
@@ -599,7 +681,16 @@ class _TableScreenState extends State<TableScreen> {
             }),
           )),
           const SizedBox(width: 6),
-          TextButton(onPressed: _myTurn ? _passBid : null, child: const Text('تمرير', style: TextStyle(color: Colors.white70))),
+          Builder(builder: (context) {
+            final passed = (_state['passed'] as List?)?.map((e) => (e as num).toInt()).toSet() ?? <int>{};
+            final dealer = (_state['dealerSeat'] as num?)?.toInt() ?? -1;
+            final forcedOpen = bid == null && _myTurn && _mySeat == dealer &&
+                [0, 1, 2, 3].where((seat) => seat != dealer).every(passed.contains);
+            return TextButton(
+              onPressed: _myTurn && !forcedOpen ? _passBid : null,
+              child: Text(forcedOpen ? 'طلب إجباري 7' : 'تمرير', style: const TextStyle(color: Colors.white70)),
+            );
+          }),
         ]),
       ]),
     );
@@ -701,8 +792,9 @@ class _TableScreenState extends State<TableScreen> {
             const Text('طريقة التوزيع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
             Wrap(spacing: 7, children: [
-              ChoiceChip(label: const Text('عشوائي'), selected: _dealMode == 'random', selectedColor: kGold, onSelected: (_) => _selectDealMode('random')),
+              ChoiceChip(label: const Text('عشوائي نزيه'), selected: _dealMode == 'random', selectedColor: kGold, onSelected: (_) => _selectDealMode('random')),
               ChoiceChip(label: const Text('قصّ الشدّة'), selected: _dealMode == 'cut', selectedColor: kGold, onSelected: (_) => _selectDealMode('cut')),
+              ChoiceChip(label: const Text('دفعات 4-3-3-3'), selected: _dealMode == 'batch_4333', selectedColor: kGold, onSelected: (_) => _selectDealMode('batch_4333')),
             ]),
             const SizedBox(height: 8),
             ElevatedButton(
@@ -812,6 +904,7 @@ class _TableScreenState extends State<TableScreen> {
                     decoration: BoxDecoration(color: _secondsLeft <= 5 ? Colors.red.withOpacity(.2) : kGold.withOpacity(.15), borderRadius: BorderRadius.circular(20)),
                     child: Text('$_secondsLeft ث', style: TextStyle(color: _secondsLeft <= 5 ? Colors.redAccent : kGold, fontWeight: FontWeight.bold)),
                   ),
+                IconButton(onPressed: _openCardTracker, tooltip: 'حافظ الورق', icon: const Icon(Icons.style_outlined, color: kGold)),
                 IconButton(onPressed: _openReportDialog, tooltip: 'إبلاغ', icon: const Icon(Icons.flag_outlined, color: Colors.white70)),
                 IconButton(onPressed: _openSettings, icon: const Icon(Icons.more_horiz, color: Colors.white70)),
               ]),
