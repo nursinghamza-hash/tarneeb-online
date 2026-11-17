@@ -72,9 +72,12 @@ jobs:
         working-directory: flutter_app
         run: flutter pub get
 
-      - name: Analyze Flutter code
+      - name: Analyze Flutter application source
         working-directory: flutter_app
-        run: flutter analyze
+        run: |
+          # flutter create generates a demo widget test for the sample app; this project has its own app entry point.
+          rm -rf test
+          flutter analyze lib/
 
       - name: Build release APK
         working-directory: flutter_app
