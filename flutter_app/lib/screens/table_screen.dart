@@ -540,8 +540,7 @@ class _TableScreenState extends State<TableScreen> {
           if (isMyCut) ...[
             const SizedBox(height: 10),
             Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [
-              _cutChoice('بعد أول مجموعتين', 26),
-              _cutChoice('من المنتصف', 26),
+              _cutChoice('بعد أول مجموعتين / المنتصف', 26),
               _cutChoice('بعد أول مجموعة', 13),
               _cutChoice('بعد ثالث مجموعة', 39),
             ]),
