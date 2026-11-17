@@ -46,20 +46,37 @@ jobs:
         run: |
           flutter create --platforms=android --project-name tarneeb_online --org com.tarneeb.online .
 
-      - name: Ensure Android network permissions
+      - name: Configure Android app label and network permissions
         working-directory: flutter_app
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
+
           path = Path("android/app/src/main/AndroidManifest.xml")
           manifest = path.read_text()
+
+          # Add required online permissions inside the manifest root.
           for permission in ("android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE"):
               if permission not in manifest:
-                  insert_at = manifest.find(">") + 1
-                  if insert_at == 0:
-                      raise SystemExit("Invalid AndroidManifest.xml")
-                  line = '\n    <uses-permission android:name="' + permission + '"/>'
+                  root = re.search(r"<manifest\\b[^>]*>", manifest)
+                  if not root:
+                      raise SystemExit("Invalid AndroidManifest.xml: manifest tag not found")
+                  insert_at = root.end()
+                  line = '\\n    <uses-permission android:name="' + permission + '"/>'
                   manifest = manifest[:insert_at] + line + manifest[insert_at:]
+
+          # Set the launcher name shown below the app icon.
+          app = re.search(r"<application\\b[^>]*>", manifest)
+          if not app:
+              raise SystemExit("Invalid AndroidManifest.xml: application tag not found")
+          app_tag = app.group(0)
+          if re.search(r'android:label="[^"]*"', app_tag):
+              app_tag = re.sub(r'android:label="[^"]*"', 'android:label="تحدي الطرنيب"', app_tag, count=1)
+          else:
+              app_tag = app_tag[:-1] + ' android:label="تحدي الطرنيب">'
+          manifest = manifest[:app.start()] + app_tag + manifest[app.end():]
+
           path.write_text(manifest)
           print(manifest)
           PY
