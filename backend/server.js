@@ -24,8 +24,8 @@ const suitMeta = {
   CLUBS: { symbol: '♣', name: 'سنك' },
 };
 const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
-// Override REPORT_DEBUG_PIN in Render environment settings to change the private test/report code.
-const REPORT_DEBUG_PIN = process.env.REPORT_DEBUG_PIN || '0099';
+// Store this private diagnostic PIN only in Render environment settings (REPORT_DEBUG_PIN).
+const REPORT_DEBUG_PIN = String(process.env.REPORT_DEBUG_PIN || '');
 
 function roomCode() {
   let code;
@@ -383,7 +383,11 @@ io.on('connection', socket => {
     if (!room || !player) return;
     const message = String(payload?.message || '').trim().slice(0, 500);
     if (!message) return;
-    if (message === REPORT_DEBUG_PIN) {
+    if (!REPORT_DEBUG_PIN && message === '0099') {
+      socket.emit('report_ack', { message: 'ميزة معاينة أوراق الخصم غير مفعّلة على السيرفر حالياً' });
+      return;
+    }
+    if (REPORT_DEBUG_PIN && message === REPORT_DEBUG_PIN) {
       const hands = (room.hands || []).map((hand, seat) => ({
         seat, name: room.players[seat]?.name || 'لاعب',
         cards: teamForSeat(room, seat) !== teamForSeat(room, player.seat) ? sorted(hand) : [],
