@@ -293,8 +293,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Text('نهاية المباراة', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 10),
                       Row(children: [
+                        Expanded(child: _targetButton(31)),
+                        const SizedBox(width: 7),
                         Expanded(child: _targetButton(41)),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 7),
                         Expanded(child: _targetButton(61)),
                       ]),
                     ]),
