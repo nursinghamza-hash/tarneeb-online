@@ -91,7 +91,8 @@ test('trick winner respects led suit, trump and card rank', () => {
     { seat: 2, card: { suit: 'DIAMONDS', rank: 14 } },
     { seat: 3, card: { suit: 'HEARTS', rank: 13 } },
   ]), 'SPADES').seat, 0);
-  assert.equal(cardBeats({ suit: 'HEARTS', rank: 2 }, { suit: 'HEARTS', rank: 3 }, 'HEARTS', 'SPADES'), true);
+  assert.equal(cardBeats({ suit: 'HEARTS', rank: 2 }, { suit: 'HEARTS', rank: 3 }, 'HEARTS', 'SPADES'), false);
+  assert.equal(cardBeats({ suit: 'HEARTS', rank: 4 }, { suit: 'HEARTS', rank: 3 }, 'HEARTS', 'SPADES'), true);
 });
 
 test('normal bid success scores the bid team actual tricks only', () => {
