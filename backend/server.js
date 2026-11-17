@@ -241,6 +241,15 @@ function applyBid(room, seat, action) {
     const min = room.bid ? room.bid.amount + 1 : 7;
     if (!Number.isInteger(amount) || amount < min || amount > 13 || !SUITS.includes(suit)) return;
     room.bid = { seat, amount, suit, symbol: suitMeta[suit].symbol };
+    if (amount === 13) {
+      // A maximum Kaboot bid closes the auction immediately.
+      room.phase = 'playing';
+      room.turnSeat = seat;
+      room.bidTurn = null;
+      startTurnTimer(room);
+      broadcastState(room);
+      return;
+    }
   }
   const activeSeats = [0, 1, 2, 3].filter(s => !room.passed.includes(s));
   if (activeSeats.length === 0) {
