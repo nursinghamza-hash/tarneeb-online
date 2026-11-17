@@ -1,13 +1,15 @@
-name: Build Tarneeb Android APK
+name: Build Tarneeb Android APK (Manual)
 
 on:
-  push:
-    branches: [ "main", "master" ]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,26 +24,55 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          cache: true
 
-      - name: Create Android platform and build APK
-        working-directory: ./flutter_app
+      - name: Generate Android platform files
+        working-directory: flutter_app
+        run: flutter create --platforms=android --project-name tarneeb_online --org com.tarneeb.online .
+
+      - name: Configure Android app label and network permissions
+        working-directory: flutter_app
         run: |
-          flutter create . --project-name tarneeb_online --org com.tarneeb.online
           python3 - <<'PY'
           from pathlib import Path
-          manifest = Path('android/app/src/main/AndroidManifest.xml')
-          text = manifest.read_text()
-          if 'android.permission.INTERNET' not in text:
-              text = text.replace('<application', '<uses-permission android:name="android.permission.INTERNET" />\n    <application', 1)
-          text = text.replace('android:label="tarneeb_online"', 'android:label="طرنيب أونلاين"')
-          manifest.write_text(text)
-          PY
-          flutter pub get
-          flutter build apk --release
+          import re
 
-      - name: Upload APK
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          manifest = path.read_text()
+
+          for permission in ("android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE"):
+              if permission not in manifest:
+                  root = re.search(r"<manifest\\b[^>]*>", manifest)
+                  if not root:
+                      raise SystemExit("Invalid AndroidManifest.xml: manifest tag not found")
+                  manifest = manifest[:root.end()] + '\\n    <uses-permission android:name="' + permission + '"/>' + manifest[root.end():]
+
+          app = re.search(r"<application\\b[^>]*>", manifest)
+          if not app:
+              raise SystemExit("Invalid AndroidManifest.xml: application tag not found")
+          app_tag = app.group(0)
+          if re.search(r'android:label="[^"]*"', app_tag):
+              app_tag = re.sub(r'android:label="[^"]*"', 'android:label="تحدي الطرنيب"', app_tag, count=1)
+          else:
+              app_tag = app_tag[:-1] + ' android:label="تحدي الطرنيب">'
+          manifest = manifest[:app.start()] + app_tag + manifest[app.end():]
+
+          path.write_text(manifest)
+          print(manifest)
+          PY
+
+      - name: Get Flutter dependencies
+        working-directory: flutter_app
+        run: flutter pub get
+
+      - name: Build release APK
+        working-directory: flutter_app
+        run: flutter build apk --release --dart-define=SERVER_URL=https://tarneeb-online-server.onrender.com
+
+      - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: Tarneeb-Online-Release-APK
+          name: Tarneeb-Online-Manual-Release-APK
           path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
           retention-days: 14
