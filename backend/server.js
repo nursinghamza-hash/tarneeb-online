@@ -439,6 +439,18 @@ function beginCutPhase(room) {
   room.deadline = null;
   broadcastState(room);
   sendRoom(room);
+
+  // In AI practice, a bot performing the cut should not leave the table waiting.
+  if (room.players[room.cutSeat]?.isBot) {
+    const cutAt = crypto.randomInt(1, 52);
+    const deck = room.preparedDeck;
+    setTimeout(() => {
+      if (!rooms.has(room.code) || room.phase !== 'cutting' || room.cutSeat == null) return;
+      room.preparedDeck = null;
+      const cutDeck = deck.slice(cutAt).concat(deck.slice(0, cutAt));
+      startRound(room, cutDeck);
+    }, 550);
+  }
 }
 function startGame(room, player) {
   if (!player || player.token !== room.hostToken) return;
