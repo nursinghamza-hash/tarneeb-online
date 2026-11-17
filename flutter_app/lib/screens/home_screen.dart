@@ -20,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _server = TextEditingController();
   int _target = 41;
   String _scoringPreset = 'jawaker';
+  bool _aiPractice = false;
   bool _busy = false;
   String _serverUrl = const String.fromEnvironment(
     'SERVER_URL',
@@ -122,6 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'playerName': _name.text.trim(),
         'targetScore': _target,
         'scoringPreset': _scoringPreset,
+        'aiPractice': _aiPractice,
       });
     });
     socket.on('room_created', (dynamic data) async {
@@ -303,6 +305,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         Expanded(child: _targetButton(41)),
                         const SizedBox(width: 7),
                         Expanded(child: _targetButton(61)),
+                      ]),
+                      const SizedBox(height: 15),
+                      const Text('نوع اللعب', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 7, runSpacing: 7, children: [
+                        ChoiceChip(
+                          label: const Text('غرفة مع أصدقاء'),
+                          selected: !_aiPractice,
+                          selectedColor: kGold,
+                          backgroundColor: Colors.black26,
+                          labelStyle: TextStyle(color: !_aiPractice ? kInk : Colors.white70, fontSize: 11),
+                          onSelected: (_) => setState(() => _aiPractice = false),
+                        ),
+                        ChoiceChip(
+                          label: const Text('تدريب ضد الذكاء الاصطناعي'),
+                          selected: _aiPractice,
+                          selectedColor: kGold,
+                          backgroundColor: Colors.black26,
+                          labelStyle: TextStyle(color: _aiPractice ? kInk : Colors.white70, fontSize: 11),
+                          onSelected: (_) => setState(() => _aiPractice = true),
+                        ),
                       ]),
                       const SizedBox(height: 15),
                       const Text('نظام احتساب الكبوت والسويب', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
