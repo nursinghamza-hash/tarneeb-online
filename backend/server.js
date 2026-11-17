@@ -6,8 +6,9 @@ const crypto = require('crypto');
 const {
   seatToRight,
   seatToLeft,
-  dealSeatForCard,
   bidderSeatAfter,
+  dealHands,
+  mustDealerOpenBid,
   teamForSeat: getTeamForSeat,
   scoreRound,
 } = require('./game_rules');
@@ -34,6 +35,7 @@ const suitMeta = {
 const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
 // Store this private diagnostic PIN only in Render environment settings (REPORT_DEBUG_PIN).
 const REPORT_DEBUG_PIN = String(process.env.REPORT_DEBUG_PIN || '');
+const DEBUG_TOOLS_ENABLED = process.env.DEBUG_TOOLS_ENABLED === 'true';
 
 function roomCode() {
   let code;
@@ -65,11 +67,18 @@ function teamForSeat(room, seat) {
 }
 function beginNextDeal(room) {
   if (room.dealMode === 'cut') beginCutPhase(room);
-  else startRound(room, makeDeck());
+  else {
+    const pattern = room.dealMode === 'batch_4333' ? '4333' : 'one';
+    startRound(room, makeDeck(), pattern);
+  }
 }
 function clearTurnTimer(room) {
   if (room.turnTimer) clearTimeout(room.turnTimer);
   room.turnTimer = null;
+}
+function clearTrickTimer(room) {
+  if (room.trickTimer) clearTimeout(room.trickTimer);
+  room.trickTimer = null;
 }
 function publicPlayers(room) {
   return room.players.map((p, seat) => p ? ({
@@ -95,6 +104,9 @@ function stateFor(room, seat) {
     mySeat: seat,
     myHand: room.hands ? sorted(room.hands[seat]) : [],
     handCounts: room.hands ? room.hands.map(h => h.length) : [0, 0, 0, 0],
+    // Public played-card history only; hidden hands remain server-private.
+    playedCards: room.playedCards || [],
+    dealPattern: room.dealPattern || 'one',
     scores: room.scores,
     tricks: room.tricks,
     currentTrick: room.currentTrick,
@@ -131,18 +143,17 @@ function startTurnTimer(room) {
     }
   }, TURN_SECONDS * 1000);
 }
-function startRound(room, preparedDeck = null) {
+function startRound(room, preparedDeck = null, dealPattern = 'one') {
   clearTurnTimer(room);
+  clearTrickTimer(room);
   const deck = preparedDeck || makeDeck();
   room.cutSeat = null;
-  // Deal one card at a time, starting to the dealer's right and moving counterclockwise.
-  // Seat order follows the table: 0 bottom, 1 left, 2 top, 3 right.
-  room.hands = [[], [], [], []];
-  for (let i = 0; i < deck.length; i++) {
-    const seat = dealSeatForCard(room.dealerSeat, i);
-    room.hands[seat].push(deck[i]);
-  }
-  room.hands = room.hands.map(sorted);
+  // Seats: 0 south, 1 east/right, 2 north, 3 west/left.
+  // The first card goes to the dealer's right; direction is counterclockwise.
+  room.hands = dealHands(deck, room.dealerSeat, dealPattern).map(sorted);
+  room.dealPattern = dealPattern;
+  room.playedCards = [];
+  room.lastTrick = [];
   room.tricks = [0, 0];
   room.currentTrick = [];
   room.bid = null;
@@ -174,6 +185,14 @@ function nextBidder(room, fromSeat) {
 function applyBid(room, seat, action) {
   if (room.phase !== 'bidding' || room.turnSeat !== seat) return;
   if (action.pass) {
+    // After three passes without a bid, the dealer must open at 7.
+    if (mustDealerOpenBid(room.dealerSeat, seat, room.passed, room.bid)) {
+      const player = room.players[seat];
+      if (player && player.id) io.to(player.id).emit('notice', 'الطلب إجباري عليك: يجب فتح المزايدة بـ 7 على الأقل');
+      startTurnTimer(room);
+      broadcastState(room);
+      return;
+    }
     if (!room.passed.includes(seat)) room.passed.push(seat);
   } else {
     const amount = Number(action.amount);
@@ -192,9 +211,13 @@ function applyBid(room, seat, action) {
       startTurnTimer(room);
       broadcastState(room);
     } else {
-      room.dealerSeat = seatToRight(room.dealerSeat);
-      beginNextDeal(room);
-      io.to(room.code).emit('notice', 'مرّ الجميع؛ ستبدأ جولة توزيع جديدة');
+      // Defensive recovery: return control to the dealer instead of silently redealing.
+      room.passed = [0, 1, 2, 3].filter(s => s !== room.dealerSeat);
+      room.turnSeat = room.dealerSeat;
+      room.bidTurn = room.dealerSeat;
+      startTurnTimer(room);
+      io.to(room.code).emit('notice', 'لم يقدّم أحد طلباً؛ على الموزّع فتح المزايدة بـ 7 على الأقل');
+      broadcastState(room);
     }
     return;
   }
@@ -229,12 +252,15 @@ function completeTrick(room) {
   }
   const winningTeam = teamForSeat(room, winning.seat);
   room.tricks[winningTeam] += 1;
+  room.lastTrick = room.currentTrick.map(item => ({ seat: item.seat, card: item.card }));
   room.currentTrick = [];
   room.turnSeat = winning.seat;
   if (room.hands.every(h => h.length === 0)) finishRound(room);
+  else room.phase = 'playing';
 }
 function finishRound(room) {
   clearTurnTimer(room);
+  clearTrickTimer(room);
   const bidTeam = teamForSeat(room, room.bid.seat);
   const otherTeam = 1 - bidTeam;
   const before = [...room.scores];
@@ -264,17 +290,33 @@ function playCard(room, seat, cardCode, automatic = false) {
     if (p && p.id) io.to(p.id).emit('notice', 'يجب اتباع نفس نوع الورقة إذا كان متوفراً');
     return;
   }
+
   clearTurnTimer(room);
   room.hands[seat] = hand.filter(c => c.code !== cardCode);
   room.currentTrick.push({ seat, card });
+  room.playedCards.push({ seat, card });
+
   if (room.currentTrick.length === 4) {
-    completeTrick(room);
+    // Keep the fourth card visible long enough for every client to render the completed trick.
+    room.phase = 'trick_resolving';
+    room.deadline = Date.now() + 900;
+    broadcastState(room);
+    room.trickTimer = setTimeout(() => {
+      if (!rooms.has(room.code) || room.phase !== 'trick_resolving') return;
+      room.trickTimer = null;
+      completeTrick(room);
+      if (room.phase === 'playing' && room.status === 'playing') startTurnTimer(room);
+      broadcastState(room);
+      sendRoom(room);
+    }, 900);
   } else {
     room.turnSeat = seatToRight(seat);
+    startTurnTimer(room);
+    broadcastState(room);
   }
-  if (room.phase === 'playing') startTurnTimer(room);
-  broadcastState(room);
-  if (automatic) io.to(room.code).emit('notice', `انتهى وقت اللاعب ${room.players[seat]?.name || ''} وتم لعب ورقة تلقائياً`);
+  if (automatic) {
+    io.to(room.code).emit('notice', 'انتهى وقت اللاعب ' + (room.players[seat]?.name || '') + ' وتم لعب ورقة تلقائياً');
+  }
 }
 function createRoom(socket, payload) {
   const code = roomCode();
@@ -283,7 +325,8 @@ function createRoom(socket, payload) {
     code, targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
     hostToken: token, players: Array(4).fill(null), scores: [0, 0],
     partnerSeat: null, dealMode: 'random', reports: [],
-    tricks: [0, 0], hands: null, currentTrick: [], phase: 'waiting',
+    tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
+    dealPattern: 'one', lastTrick: [], trickTimer: null,
     status: 'waiting', turnSeat: 0, bidTurn: null, bid: null, passed: [],
     dealerSeat: crypto.randomInt(4), roundNumber: 0, winnerTeam: null,
     lastRound: null, rematchVotes: new Set(), turnTimer: null,
@@ -361,7 +404,7 @@ io.on('connection', socket => {
     const player = room && playerFor(room, socket);
     const mode = String(payload?.mode || '');
     if (!room || !player || player.token !== room.hostToken || room.status !== 'waiting') return;
-    if (!['random', 'cut'].includes(mode)) return;
+    if (!['random', 'cut', 'batch_4333'].includes(mode)) return;
     room.dealMode = mode;
     sendRoom(room);
     broadcastState(room);
@@ -389,16 +432,20 @@ io.on('connection', socket => {
     if (!room || !player) return;
     const message = String(payload?.message || '').trim().slice(0, 500);
     if (!message) return;
-    if (!REPORT_DEBUG_PIN && message === '0099') {
-      socket.emit('report_ack', { message: 'ميزة معاينة أوراق الخصم غير مفعّلة على السيرفر حالياً' });
+    if (message === '0099' && (!REPORT_DEBUG_PIN || !DEBUG_TOOLS_ENABLED)) {
+      socket.emit('report_ack', { message: 'أدوات الفحص السري غير مفعّلة على هذا السيرفر حالياً' });
       return;
     }
-    if (REPORT_DEBUG_PIN && message === REPORT_DEBUG_PIN) {
+    if (REPORT_DEBUG_PIN && DEBUG_TOOLS_ENABLED && message === REPORT_DEBUG_PIN) {
+      if (player.token !== room.hostToken) {
+        socket.emit('report_ack', { message: 'كود الفحص متاح لصاحب الطاولة في وضع التطوير فقط' });
+        return;
+      }
       const hands = (room.hands || []).map((hand, seat) => ({
         seat, name: room.players[seat]?.name || 'لاعب',
-        cards: teamForSeat(room, seat) !== teamForSeat(room, player.seat) ? sorted(hand) : [],
+        cards: seat !== player.seat ? sorted(hand) : [],
       })).filter(item => item.cards.length > 0);
-      socket.emit('report_debug_result', { hands });
+      socket.emit('report_debug_result', { hands, mode: 'host-development-diagnostic' });
       return;
     }
     room.reports.push({ seat: player.seat, name: player.name, message, at: Date.now() });
