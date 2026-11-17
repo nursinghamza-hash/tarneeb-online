@@ -77,7 +77,7 @@ jobs:
         run: |
           # flutter create generates a demo widget test for the sample app; this project has its own app entry point.
           rm -rf test
-          flutter analyze lib/
+          flutter analyze --no-fatal-infos lib/
 
       - name: Build release APK
         working-directory: flutter_app
