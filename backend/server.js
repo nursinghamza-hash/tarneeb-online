@@ -24,6 +24,8 @@ const suitMeta = {
   CLUBS: { symbol: '♣', name: 'سنك' },
 };
 const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
+// Override REPORT_DEBUG_PIN in Render environment settings to change the private test/report code.
+const REPORT_DEBUG_PIN = process.env.REPORT_DEBUG_PIN || '0099';
 
 function roomCode() {
   let code;
@@ -50,6 +52,13 @@ function rankLabel(rank) {
 function playerFor(room, socket) {
   return room.players.find(p => p && p.id === socket.id);
 }
+function teamForSeat(room, seat) {
+  return seat === 0 || seat === room.partnerSeat ? 0 : 1;
+}
+function beginNextDeal(room) {
+  if (room.dealMode === 'cut') beginCutPhase(room);
+  else startRound(room, makeDeck());
+}
 function clearTurnTimer(room) {
   if (room.turnTimer) clearTimeout(room.turnTimer);
   room.turnTimer = null;
@@ -64,6 +73,7 @@ function sendRoom(room) {
   io.to(room.code).emit('room_update', {
     roomCode: room.code, targetScore: room.targetScore,
     status: room.status, players: publicPlayers(room),
+    partnerSeat: room.partnerSeat, dealMode: room.dealMode,
   });
 }
 function stateFor(room, seat) {
@@ -91,6 +101,8 @@ function stateFor(room, seat) {
     lastRound: room.lastRound,
     myToken: me ? me.token : null,
     cutSeat: room.cutSeat ?? null,
+    partnerSeat: room.partnerSeat,
+    dealMode: room.dealMode,
   };
 }
 function broadcastState(room) {
@@ -173,8 +185,8 @@ function applyBid(room, seat, action) {
       broadcastState(room);
     } else {
       room.dealerSeat = (room.dealerSeat + 1) % 4;
-      beginCutPhase(room);
-      io.to(room.code).emit('notice', 'مرّ الجميع؛ اقطعوا الشدّة لإعادة التوزيع');
+      beginNextDeal(room);
+      io.to(room.code).emit('notice', 'مرّ الجميع؛ ستبدأ جولة توزيع جديدة');
     }
     return;
   }
@@ -207,7 +219,7 @@ function completeTrick(room) {
   for (const item of room.currentTrick.slice(1)) {
     if (cardBeats(item.card, winning.card, ledSuit, room.bid.suit)) winning = item;
   }
-  const winningTeam = winning.seat % 2;
+  const winningTeam = teamForSeat(room, winning.seat);
   room.tricks[winningTeam] += 1;
   room.currentTrick = [];
   room.turnSeat = winning.seat;
@@ -215,7 +227,7 @@ function completeTrick(room) {
 }
 function finishRound(room) {
   clearTurnTimer(room);
-  const bidTeam = room.bid.seat % 2;
+  const bidTeam = teamForSeat(room, room.bid.seat);
   const otherTeam = 1 - bidTeam;
   const bidMet = room.tricks[bidTeam] >= room.bid.amount;
   const before = [...room.scores];
@@ -264,6 +276,7 @@ function createRoom(socket, payload) {
   const room = {
     code, targetScore: Number(payload.targetScore) === 61 ? 61 : 41,
     hostToken: token, players: Array(4).fill(null), scores: [0, 0],
+    partnerSeat: null, dealMode: 'random', reports: [],
     tricks: [0, 0], hands: null, currentTrick: [], phase: 'waiting',
     status: 'waiting', turnSeat: 0, bidTurn: null, bid: null, passed: [],
     dealerSeat: crypto.randomInt(4), roundNumber: 0, winnerTeam: null,
@@ -285,10 +298,7 @@ function joinRoom(socket, payload) {
   if (!room) return socket.emit('room_error', 'رقم الطاولة غير موجود');
   const token = String(payload.token || '');
   let seat = room.players.findIndex(p => p && p.token === token && token.length > 10);
-  if (seat < 0) {
-    const requestedName = cleanName(payload.playerName).toLocaleLowerCase();
-    seat = room.players.findIndex(p => p && !p.connected && p.name.toLocaleLowerCase() === requestedName);
-  }
+  // A disconnected seat can only be reclaimed with its original recovery token.
   if (seat >= 0) {
     room.players[seat].id = socket.id;
     room.players[seat].connected = true;
@@ -317,9 +327,10 @@ function beginCutPhase(room) {
 function startGame(room, player) {
   if (!player || player.token !== room.hostToken) return;
   if (room.players.some(p => !p)) return io.to(player.id).emit('room_error', 'تحتاج الطاولة إلى 4 لاعبين لبدء اللعب');
+  if (![1, 2, 3].includes(room.partnerSeat)) return io.to(player.id).emit('room_error', 'اختر شريكك أولاً');
   room.scores = [0, 0];
   room.roundNumber = 1;
-  beginCutPhase(room);
+  beginNextDeal(room);
 }
 io.on('connection', socket => {
   console.log(`[socket] connected: ${socket.id} transport=${socket.conn.transport.name}`);
@@ -329,6 +340,26 @@ io.on('connection', socket => {
   socket.on('create_room', payload => createRoom(socket, payload || {}));
   socket.on('join_room', payload => joinRoom(socket, payload || {}));
 
+  socket.on('select_partner', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    const partnerSeat = Number(payload?.partnerSeat);
+    if (!room || !player || player.token !== room.hostToken || room.status !== 'waiting') return;
+    if (![1, 2, 3].includes(partnerSeat) || !room.players[partnerSeat]) return;
+    room.partnerSeat = partnerSeat;
+    sendRoom(room);
+    broadcastState(room);
+  });
+  socket.on('select_deal_mode', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    const mode = String(payload?.mode || '');
+    if (!room || !player || player.token !== room.hostToken || room.status !== 'waiting') return;
+    if (!['random', 'cut'].includes(mode)) return;
+    room.dealMode = mode;
+    sendRoom(room);
+    broadcastState(room);
+  });
   socket.on('start_game', () => {
     const room = [...rooms.values()].find(r => playerFor(r, socket));
     if (!room) return;
@@ -346,6 +377,24 @@ io.on('connection', socket => {
     startRound(room, cutDeck);
   });
 
+  socket.on('submit_report', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    if (!room || !player) return;
+    const message = String(payload?.message || '').trim().slice(0, 500);
+    if (!message) return;
+    if (message === REPORT_DEBUG_PIN) {
+      const hands = (room.hands || []).map((hand, seat) => ({
+        seat, name: room.players[seat]?.name || 'لاعب',
+        cards: teamForSeat(room, seat) !== teamForSeat(room, player.seat) ? sorted(hand) : [],
+      })).filter(item => item.cards.length > 0);
+      socket.emit('report_debug_result', { hands });
+      return;
+    }
+    room.reports.push({ seat: player.seat, name: player.name, message, at: Date.now() });
+    console.log(`[player-report] room=${room.code} from=${player.name}: ${message}`);
+    socket.emit('report_ack', { message: 'تم استلام بلاغك' });
+  });
   socket.on('submit_bid', payload => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
     const player = room && playerFor(room, socket);
@@ -370,7 +419,7 @@ io.on('connection', socket => {
     if (!room || !player || player.token !== room.hostToken || room.phase !== 'round_result' || room.status !== 'playing') return;
     room.dealerSeat = (room.dealerSeat + 1) % 4;
     room.roundNumber += 1;
-    beginCutPhase(room);
+    beginNextDeal(room);
   });
   socket.on('play_again', () => {
     const room = [...rooms.values()].find(r => playerFor(r, socket));
@@ -383,7 +432,7 @@ io.on('connection', socket => {
       room.scores = [0, 0];
       room.dealerSeat = (room.dealerSeat + 1) % 4;
       room.roundNumber = 1;
-      beginCutPhase(room);
+      beginNextDeal(room);
     }
   });
   socket.on('leave_room', () => {
