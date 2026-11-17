@@ -19,6 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _code = TextEditingController();
   final _server = TextEditingController();
   int _target = 41;
+  String _scoringPreset = 'jawaker';
   bool _busy = false;
   String _serverUrl = const String.fromEnvironment(
     'SERVER_URL',
@@ -117,7 +118,11 @@ class _HomeScreenState extends State<HomeScreen> {
     socket.onConnect((_) {
       if (sent) return;
       sent = true;
-      socket.emit('create_room', {'playerName': _name.text.trim(), 'targetScore': _target});
+      socket.emit('create_room', {
+        'playerName': _name.text.trim(),
+        'targetScore': _target,
+        'scoringPreset': _scoringPreset,
+      });
     });
     socket.on('room_created', (dynamic data) async {
       if (opened || !mounted) return;
@@ -298,6 +303,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         Expanded(child: _targetButton(41)),
                         const SizedBox(width: 7),
                         Expanded(child: _targetButton(61)),
+                      ]),
+                      const SizedBox(height: 15),
+                      const Text('نظام احتساب الكبوت والسويب', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 7, runSpacing: 7, children: [
+                        ChoiceChip(
+                          label: const Text('جواكر: 26 / 16'),
+                          selected: _scoringPreset == 'jawaker',
+                          selectedColor: kGold,
+                          backgroundColor: Colors.black26,
+                          labelStyle: TextStyle(color: _scoringPreset == 'jawaker' ? kInk : Colors.white70, fontSize: 11),
+                          onSelected: (_) => setState(() => _scoringPreset = 'jawaker'),
+                        ),
+                        ChoiceChip(
+                          label: const Text('قواعدنا: 16 / 14'),
+                          selected: _scoringPreset == 'house_16_14',
+                          selectedColor: kGold,
+                          backgroundColor: Colors.black26,
+                          labelStyle: TextStyle(color: _scoringPreset == 'house_16_14' ? kInk : Colors.white70, fontSize: 11),
+                          onSelected: (_) => setState(() => _scoringPreset = 'house_16_14'),
+                        ),
                       ]),
                     ]),
                   ),
