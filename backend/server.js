@@ -11,6 +11,7 @@ const {
   mustDealerOpenBid,
   teamForSeat: getTeamForSeat,
   scoreRound,
+  canBid,
 } = require('./game_rules');
 
 const app = express();
@@ -184,6 +185,11 @@ function nextBidder(room, fromSeat) {
 }
 function applyBid(room, seat, action) {
   if (room.phase !== 'bidding' || room.turnSeat !== seat) return;
+  if (!canBid(seat, room.passed)) {
+    const player = room.players[seat];
+    if (player && player.id) io.to(player.id).emit('notice', 'لقد مررت في هذه الجولة ولا يمكنك المزايدة مجدداً');
+    return;
+  }
   if (action.pass) {
     // After three passes without a bid, the dealer must open at 7.
     if (mustDealerOpenBid(room.dealerSeat, seat, room.passed, room.bid)) {
@@ -200,7 +206,6 @@ function applyBid(room, seat, action) {
     const min = room.bid ? room.bid.amount + 1 : 7;
     if (!Number.isInteger(amount) || amount < min || amount > 13 || !SUITS.includes(suit)) return;
     room.bid = { seat, amount, suit, symbol: suitMeta[suit].symbol };
-    room.passed = room.passed.filter(s => s !== seat);
   }
   const activeSeats = [0, 1, 2, 3].filter(s => !room.passed.includes(s));
   if (activeSeats.length === 0) {
