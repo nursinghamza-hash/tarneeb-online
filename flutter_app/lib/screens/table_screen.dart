@@ -572,6 +572,20 @@ class _TableScreenState extends State<TableScreen> {
   );
 
   Widget _centerTable() {
+    Widget trickCardForSeat(int seat) {
+      final raw = _trick.cast<dynamic>().firstWhere(
+        (item) => (item as Map)['seat'] == seat,
+        orElse: () => null,
+      );
+      if (raw == null) return const SizedBox.shrink();
+      final item = Map<String, dynamic>.from(raw as Map);
+      return PlayingCardWidget(
+        card: _cardModel(item['card']),
+        isCompact: true,
+        isPlayable: false,
+      );
+    }
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -590,45 +604,50 @@ class _TableScreenState extends State<TableScreen> {
         Positioned(left: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 3, child: _playerBadge(3, '🂠')))),
         Center(
           child: DragTarget<Map<String, dynamic>>(
+            onWillAcceptWithDetails: (details) => _myTurn && _phase == 'playing' && _isLegalCard(details.data),
             onAcceptWithDetails: (details) => _playCard(details.data),
             builder: (context, candidateData, rejectedData) {
               final hovering = candidateData.isNotEmpty;
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
-                width: 280,
-                height: 112,
-                alignment: Alignment.center,
+                width: 286,
+                height: 188,
                 decoration: BoxDecoration(
-                  color: hovering ? kGold.withOpacity(.14) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
+                  color: hovering ? kGold.withOpacity(.12) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: hovering ? kGold : Colors.white.withOpacity(.07),
                     width: hovering ? 2 : 1,
                   ),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 5,
-                      runSpacing: 3,
-                      children: _trick.map((item) {
-                        final m = Map<String, dynamic>.from(item as Map);
-                        return PlayingCardWidget(card: _cardModel(m['card']), isPlayable: false);
-                      }).toList(),
+                child: Stack(children: [
+                  Positioned(top: 2, left: 0, right: 0, height: 68,
+                    child: Center(child: trickCardForSeat(2))),
+                  Positioned(bottom: 2, left: 0, right: 0, height: 68,
+                    child: Center(child: trickCardForSeat(0))),
+                  Positioned(left: 2, top: 0, bottom: 0, width: 52,
+                    child: Center(child: trickCardForSeat(3))),
+                  Positioned(right: 2, top: 0, bottom: 0, width: 52,
+                    child: Center(child: trickCardForSeat(1))),
+                  if (_trick.isEmpty && _myTurn && _phase == 'playing')
+                    const Center(
+                      child: Text('اسحب الورقة إلى منتصف الطاولة',
+                        style: TextStyle(color: Colors.white38, fontSize: 10)),
                     ),
-                    if (_trick.isEmpty && _myTurn && _phase == 'playing')
-                      const Text('اسحب الورقة إلى منتصف الطاولة', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                  ],
-                ),
+                  if (_phase == 'trick_resolving')
+                    const Positioned(
+                      bottom: 5, left: 0, right: 0,
+                      child: Center(child: Text('تحديد الفائز بالأكلة…',
+                        style: TextStyle(color: kGold, fontSize: 10, fontWeight: FontWeight.bold))),
+                    ),
+                ]),
               );
             },
           ),
         ),
         Positioned(bottom: 7, left: 0, right: 0, child: Center(
           child: Text(
-            _phase == 'bidding' ? 'مرحلة الطلب' : _phase == 'playing' ? 'الأكلة الحالية' : _phase == 'round_result' ? 'نتيجة الجولة' : 'الطاولة',
+            _phase == 'bidding' ? 'مرحلة الطلب' : _phase == 'playing' || _phase == 'trick_resolving' ? 'الأكلة الحالية' : _phase == 'round_result' ? 'نتيجة الجولة' : 'الطاولة',
             style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
           ),
         )),
