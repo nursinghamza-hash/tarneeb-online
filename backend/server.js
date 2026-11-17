@@ -3,6 +3,14 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const crypto = require('crypto');
+const {
+  seatToRight,
+  seatToLeft,
+  dealSeatForCard,
+  bidderSeatAfter,
+  teamForSeat: getTeamForSeat,
+  scoreRound,
+} = require('./game_rules');
 
 const app = express();
 app.use(cors());
@@ -53,7 +61,7 @@ function playerFor(room, socket) {
   return room.players.find(p => p && p.id === socket.id);
 }
 function teamForSeat(room, seat) {
-  return seat === 0 || seat === room.partnerSeat ? 0 : 1;
+  return getTeamForSeat(room.partnerSeat, seat);
 }
 function beginNextDeal(room) {
   if (room.dealMode === 'cut') beginCutPhase(room);
@@ -131,7 +139,7 @@ function startRound(room, preparedDeck = null) {
   // Seat order follows the table: 0 bottom, 1 left, 2 top, 3 right.
   room.hands = [[], [], [], []];
   for (let i = 0; i < deck.length; i++) {
-    const seat = (room.dealerSeat + 3 * (i + 1)) % 4;
+    const seat = dealSeatForCard(room.dealerSeat, i);
     room.hands[seat].push(deck[i]);
   }
   room.hands = room.hands.map(sorted);
@@ -141,7 +149,7 @@ function startRound(room, preparedDeck = null) {
   room.passed = [];
   room.phase = 'bidding';
   room.status = 'playing';
-  room.turnSeat = (room.dealerSeat + 3) % 4;
+  room.turnSeat = seatToRight(room.dealerSeat);
   room.bidTurn = room.turnSeat;
   room.winnerTeam = null;
   room.lastRound = null;
@@ -158,7 +166,7 @@ function legalCards(room, seat) {
 }
 function nextBidder(room, fromSeat) {
   for (let step = 1; step <= 4; step++) {
-    const seat = (fromSeat + 4 - step) % 4;
+    const seat = bidderSeatAfter(fromSeat, step);
     if (!room.passed.includes(seat)) return seat;
   }
   return null;
@@ -184,7 +192,7 @@ function applyBid(room, seat, action) {
       startTurnTimer(room);
       broadcastState(room);
     } else {
-      room.dealerSeat = (room.dealerSeat + 3) % 4;
+      room.dealerSeat = seatToRight(room.dealerSeat);
       beginNextDeal(room);
       io.to(room.code).emit('notice', 'مرّ الجميع؛ ستبدأ جولة توزيع جديدة');
     }
@@ -201,7 +209,7 @@ function applyBid(room, seat, action) {
   room.turnSeat = nextBidder(room, seat);
   if (room.turnSeat === null) {
     room.phase = 'playing';
-    room.turnSeat = room.bid ? room.bid.seat : (room.dealerSeat + 3) % 4;
+    room.turnSeat = room.bid ? room.bid.seat : seatToRight(room.dealerSeat);
   }
   startTurnTimer(room);
   broadcastState(room);
@@ -229,27 +237,9 @@ function finishRound(room) {
   clearTurnTimer(room);
   const bidTeam = teamForSeat(room, room.bid.seat);
   const otherTeam = 1 - bidTeam;
-  const bidMet = room.tricks[bidTeam] >= room.bid.amount;
   const before = [...room.scores];
-  const allTricksTeam = room.tricks[0] === 13 ? 0 : (room.tricks[1] === 13 ? 1 : null);
-
-  // Jawaker-style Tarneeb scoring: 13 tricks are a special sweep.
-  if (room.bid.amount === 13) {
-    if (bidMet) {
-      room.scores[bidTeam] += 26;
-    } else {
-      room.scores[bidTeam] -= 16;
-      room.scores[otherTeam] += allTricksTeam === otherTeam ? 16 : room.tricks[otherTeam];
-    }
-  } else if (allTricksTeam !== null) {
-    room.scores[allTricksTeam] += 16;
-    if (allTricksTeam === otherTeam) room.scores[bidTeam] -= room.bid.amount;
-  } else if (bidMet) {
-    room.scores[bidTeam] += room.tricks[bidTeam];
-  } else {
-    room.scores[bidTeam] -= room.bid.amount;
-    room.scores[otherTeam] += room.tricks[otherTeam];
-  }
+  const { scores, bidMet } = scoreRound(room.scores, room.tricks, bidTeam, room.bid.amount);
+  room.scores = scores;
   room.lastRound = {
     bid: room.bid, tricks: [...room.tricks], before,
     after: [...room.scores], bidMet,
@@ -280,7 +270,7 @@ function playCard(room, seat, cardCode, automatic = false) {
   if (room.currentTrick.length === 4) {
     completeTrick(room);
   } else {
-    room.turnSeat = (seat + 3) % 4;
+    room.turnSeat = seatToRight(seat);
   }
   if (room.phase === 'playing') startTurnTimer(room);
   broadcastState(room);
@@ -332,7 +322,7 @@ function joinRoom(socket, payload) {
 }
 function beginCutPhase(room) {
   room.preparedDeck = makeDeck();
-  room.cutSeat = (room.dealerSeat + 1) % 4;
+  room.cutSeat = seatToLeft(room.dealerSeat);
   room.phase = 'cutting';
   room.status = 'playing';
   room.turnSeat = room.cutSeat;
@@ -437,7 +427,7 @@ io.on('connection', socket => {
     const room = [...rooms.values()].find(r => playerFor(r, socket));
     const player = room && playerFor(room, socket);
     if (!room || !player || player.token !== room.hostToken || room.phase !== 'round_result' || room.status !== 'playing') return;
-    room.dealerSeat = (room.dealerSeat + 3) % 4;
+    room.dealerSeat = seatToRight(room.dealerSeat);
     room.roundNumber += 1;
     beginNextDeal(room);
   });
@@ -450,7 +440,7 @@ io.on('connection', socket => {
     if (room.rematchVotes.size === 4) {
       room.rematchVotes.clear();
       room.scores = [0, 0];
-      room.dealerSeat = (room.dealerSeat + 3) % 4;
+      room.dealerSeat = seatToRight(room.dealerSeat);
       room.roundNumber = 1;
       beginNextDeal(room);
     }
