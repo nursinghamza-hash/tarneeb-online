@@ -497,7 +497,7 @@ class _TableScreenState extends State<TableScreen> {
         Positioned(left: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 3, child: _playerBadge(1, '🂠')))),
         Positioned(right: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 1, child: _playerBadge(3, '🂠')))),
         Center(
-          child: DragTarget<dynamic>(
+          child: DragTarget<Map<String, dynamic>>(
             onAcceptWithDetails: (details) => _playCard(details.data),
             builder: (context, candidateData, rejectedData) {
               final hovering = candidateData.isNotEmpty;
@@ -650,8 +650,8 @@ class _TableScreenState extends State<TableScreen> {
                 return Positioned(
                   right: index * step,
                   top: 5,
-                  child: Draggable<dynamic>(
-                    data: raw,
+                  child: Draggable<Map<String, dynamic>>(
+                    data: Map<String, dynamic>.from(raw as Map),
                     maxSimultaneousDrags: canPlay ? 1 : 0,
                     feedback: Material(
                       color: Colors.transparent,
