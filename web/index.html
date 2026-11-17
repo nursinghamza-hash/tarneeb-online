@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0A2E1D" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>طرنيب أونلاين - Tarneeb Online</title>
+  <link rel="manifest" href="manifest.json" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;900&display=swap" rel="stylesheet" />
+  <!-- PeerJS for Serverless Online Multiplayer over GitHub Pages / Cloudflare Pages -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    :root {
+      --bg-dark: #072215;
+      --felt-center: #19643e;
+      --felt-edge: #092918;
+      --gold: #d4af37;
+      --gold-light: #f9e27d;
+      --danger: #e53935;
+      --card-white: #ffffff;
+      --text-light: #f5f5f5;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      font-family: 'Cairo', sans-serif;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: radial-gradient(circle at center, var(--felt-center) 0%, var(--felt-edge) 85%, var(--bg-dark) 100%);
+      color: var(--text-light);
+    }
+    .screen {
+      display: none;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .screen.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ================= HOME SCREEN ================= */
+    #home-screen {
+      padding: 18px;
+      justify-content: space-between;
+      align-items: center;
+      background: radial-gradient(circle at 50% 35%, #165636 0%, #071f13 90%);
+    }
+    .top-profile-bar {
+      width: 100%;
+      max-width: 520px;
+      background: rgba(18, 70, 45, 0.9);
+      border: 1.5px solid var(--gold);
+      border-radius: 16px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+    }
+    .profile-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .avatar-circle {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--gold-light), var(--gold));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: #072215;
+      font-weight: 900;
+      border: 2px solid #fff;
+      cursor: pointer;
+    }
+    .coins-badge {
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(212,175,55,0.5);
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-weight: 700;
+      color: var(--gold-light);
+      font-size: 14px;
+    }
+    .brand-hero {
+      text-align: center;
+      margin: 10px 0;
+    }
+    .brand-cards-icon {
+      font-size: 62px;
+      text-shadow: 0 6px 16px rgba(0,0,0,0.5);
+      line-height: 1.1;
+    }
+    .brand-title {
+      font-size: 36px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 3px 10px rgba(0,0,0,0.6);
+    }
+    .brand-subtitle {
+      font-size: 13px;
+      letter-spacing: 3px;
+      color: var(--gold);
+      font-weight: 700;
+    }
+    .menu-buttons {
+      width: 100%;
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .btn-main {
+      width: 100%;
+      padding: 13px 18px;
+      border-radius: 14px;
+      border: none;
+      font-size: 17px;
+      font-weight: 900;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: transform 0.12s, box-shadow 0.12s;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.35);
+    }
+    .btn-main:active {
+      transform: scale(0.97);
+    }
+    .btn-gold {
+      background: linear-gradient(135deg, var(--gold-light) 0%, var(--gold) 100%);
+      color: #072215;
+    }
+    .btn-green {
+      background: #185838;
+      color: #fff;
+      border: 1.2px solid rgba(212,175,55,0.6);
+    }
+    .btn-row {
+      display: flex;
+      gap: 10px;
+    }
+    .bottom-nav {
+      width: 100%;
+      max-width: 460px;
+      display: flex;
+      justify-content: space-around;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.12);
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #ccc;
+      cursor: pointer;
+      gap: 3px;
+    }
+    .nav-item span.icon {
+      font-size: 22px;
+    }
+
+    /* ================= TABLE SCREEN ================= */
+    #table-screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    .table-top-bar {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 30;
+    }
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255,255,255,0.22);
+      color: #fff;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .scoreboard-pill {
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(212,175,55,0.5);
+      border-radius: 14px;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .trump-badge {
+      background: var(--gold);
+      color: #000;
+      padding: 2px 9px;
+      border-radius: 8px;
+      font-weight: 900;
+      font-size: 12px;
+    }
+    .faresh-btn {
+      background: linear-gradient(135deg, var(--gold-light), var(--gold));
+      color: #000;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-weight: 900;
+      font-size: 13px;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+    }
+    .faresh-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* ================= SEATS & MINI PEEK CARDS ================= */
+    .seat-container {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 15;
+    }
+    .seat-top {
+      top: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 92%;
+      max-width: 420px;
+    }
+    .seat-right {
+      right: 8px;
+      top: 30%;
+      align-items: flex-start;
+      max-width: 145px;
+    }
+    .seat-left {
+      left: 8px;
+      top: 30%;
+      align-items: flex-end;
+      max-width: 145px;
+    }
+    .seat-bottom {
+      bottom: 10px;
+      left: 0;
+      right: 0;
+      width: 100%;
+    }
+    .player-badge {
+      background: rgba(0, 0, 0, 0.62);
+      border: 1.5px solid rgba(255, 255, 255, 0.25);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .player-badge.active-turn {
+      background: var(--gold);
+      color: #000;
+      border-color: #fff;
+      box-shadow: 0 0 14px rgba(212, 175, 55, 0.9);
+    }
+
+    /* Mini revealed cards container (0099 cheat mode) */
+    .peek-hand-box {
+      margin-top: 5px;
+      background: rgba(0, 0, 0, 0.68);
+      border: 1px solid rgba(212, 175, 55, 0.65);
+      border-radius: 8px;
+      padding: 4px;
+      display: none;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 2px;
+    }
+    .peek-hand-box.visible {
+      display: flex;
+    }
+    .mini-card {
+      width: 25px;
+      height: 36px;
+      background: #fff;
+      border-radius: 4px;
+      border: 1px solid #999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1.05;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    .mini-card.red { color: #d32f2f; }
+    .mini-card.black { color: #111; }
+
+    /* Player main hand at bottom */
+    .my-hand-scroll {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: visible;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      padding: 8px 6px 4px 6px;
+      gap: 0;
+      scrollbar-width: none;
+    }
+    .my-hand-scroll::-webkit-scrollbar { display: none; }
+    .playing-card {
+      width: 58px;
+      height: 86px;
+      min-width: 58px;
+      flex: 0 0 58px;
+      background: #fff;
+      border-radius: 8px;
+      border: 1.2px solid #bbb;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.45);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 5px;
+      cursor: pointer;
+      transition: transform 0.16s, opacity 0.16s;
+      position: relative;
+    }
+    .playing-card:hover {
+      transform: translateY(-8px);
+    }
+    .playing-card.red { color: #d32f2f; }
+    .playing-card.black { color: #151515; }
+    .playing-card.disabled-card {
+      opacity: 0.28;
+      filter: grayscale(.65);
+      cursor: not-allowed;
+    }
+    .card-corner-top {
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1;
+      text-align: center;
+    }
+    .card-center-suit {
+      font-size: 24px;
+      text-align: center;
+      line-height: 1;
+    }
+    .card-corner-bottom {
+      font-size: 11px;
+      font-weight: 900;
+      text-align: left;
+      line-height: 1;
+    }
+
+    /* ================= CENTER TRICK & BIDDING ================= */
+    .center-stage {
+      position: absolute;
+      top: 51%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 240px;
+      height: 170px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .trick-slot {
+      position: absolute;
+      transition: all 0.25s ease-out;
+    }
+    .trick-seat-0 { transform: translate(0, 34px); }
+    .trick-seat-1 { transform: translate(54px, 0); }
+    .trick-seat-2 { transform: translate(0, -34px); }
+    .trick-seat-3 { transform: translate(-54px, 0); }
+
+    .bidding-panel {
+      background: rgba(11, 43, 27, 0.96);
+      border: 2px solid var(--gold);
+      border-radius: 18px;
+      padding: 14px;
+      width: 320px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.65);
+      z-index: 25;
+    }
+    .suit-selector {
+      display: flex;
+      justify-content: space-between;
+      gap: 6px;
+      margin: 10px 0;
+    }
+    .suit-chip {
+      flex: 1;
+      padding: 6px 4px;
+      border-radius: 10px;
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .suit-chip.selected {
+      background: var(--gold);
+      color: #000;
+      border-color: #fff;
+      font-weight: 900;
+    }
+    .bid-numbers-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .bid-num-btn {
+      width: 42px;
+      height: 38px;
+      border-radius: 8px;
+      border: 1px solid rgba(212,175,55,0.5);
+      background: #1b5c3a;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .bid-num-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+    .pass-btn {
+      width: 100%;
+      padding: 7px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.35);
+      background: transparent;
+      color: #eee;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* ================= MODALS (3-LINES MENU & REPORT 0099) ================= */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.68);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal-card {
+      background: #103824;
+      border: 1.5px solid var(--gold);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 360px;
+      padding: 18px;
+      box-shadow: 0 12px 35px rgba(0,0,0,0.75);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      font-size: 17px;
+      font-weight: 900;
+    }
+    .menu-row-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 6px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      cursor: pointer;
+    }
+    .pin-input {
+      width: 100%;
+      padding: 11px;
+      border-radius: 10px;
+      border: 1px solid var(--gold);
+      background: rgba(0,0,0,0.35);
+      color: #fff;
+      font-size: 18px;
+      text-align: center;
+      letter-spacing: 5px;
+      margin: 12px 0;
+    }
+    .toast-msg {
+      position: fixed;
+      bottom: 125px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.85);
+      border: 1px solid var(--gold);
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      z-index: 200;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==================== 1. الشاشة الرئيسية (HOME) ==================== -->
+  <div id="home-screen" class="screen active">
+    <div class="top-profile-bar">
+      <div class="profile-info">
+        <div class="avatar-circle" id="avatar-btn" onclick="cycleAvatar()">🦅</div>
+        <div>
+          <div id="player-name-display" style="font-size: 17px; font-weight: 900;">أبو طارق</div>
+          <div style="font-size: 12px; color: var(--gold-light);">المستوى 15 • طرنيب المحترفين</div>
+        </div>
+      </div>
+      <div class="coins-badge">🪙 <span id="coins-count">15,000</span></div>
+    </div>
+
+    <div class="brand-hero">
+      <div class="brand-cards-icon">🂡 🂱</div>
+      <div class="brand-title">طرنيب أونلاين</div>
+      <div class="brand-subtitle">TARNEEB ONLINE PRO</div>
+    </div>
+
+    <div class="menu-buttons">
+      <button class="btn-main btn-gold" onclick="startQuickMatch()">
+        <span>▶</span> لعب سريع (طاولة مباشرة)
+      </button>
+      <div class="btn-row">
+        <button class="btn-main btn-green" onclick="openOnlineModal('create')">
+          <span>➕</span> إنشاء غرفة
+        </button>
+        <button class="btn-main btn-green" onclick="openOnlineModal('join')">
+          <span>🔑</span> انضمام برمز
+        </button>
+      </div>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item" onclick="showStatsModal()">
+        <span class="icon">🏆</span>
+        <span>الإحصائيات</span>
+      </div>
+      <div class="nav-item" onclick="changePlayerNamePrompt()">
+        <span class="icon">👤</span>
+        <span>تغيير الاسم</span>
+      </div>
+      <div class="nav-item" onclick="openThreeLinesMenu()">
+        <span class="icon">⚙️</span>
+        <span>الإعدادات</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 2. شاشة طاولة اللعب (TABLE) ==================== -->
+  <div id="table-screen" class="screen">
+    <!-- الشريط العلوي -->
+    <div class="table-top-bar">
+      <!-- زر الثلاث شحطات (☰) -->
+      <button class="icon-btn" onclick="openThreeLinesMenu()" title="القائمة والإعدادات">☰</button>
+
+      <!-- النتيجة والطلب -->
+      <div class="scoreboard-pill">
+        <span style="color: #69f0ae;">لنا: <b id="score-us">0</b> (<span id="tricks-us">0</span>)</span>
+        <span class="trump-badge" id="bid-status-badge">الطلب: --</span>
+        <span style="color: #ffab40;">لهم: <b id="score-them">0</b> (<span id="tricks-them">0</span>)</span>
+      </div>
+
+      <!-- زر فارش -->
+      <button class="faresh-btn" id="faresh-btn" onclick="claimFaresh()" disabled>فارش</button>
+    </div>
+
+    <!-- مقعد الشريك (أعلى الطاولة - مقعد 2) -->
+    <div class="seat-container seat-top">
+      <div class="player-badge" id="badge-seat-2">👤 الشريك (<span id="count-seat-2">13</span>)</div>
+      <div class="peek-hand-box" id="peek-seat-2"></div>
+    </div>
+
+    <!-- مقعد الخصم الأيمن (مقعد 1) -->
+    <div class="seat-container seat-right">
+      <div class="player-badge" id="badge-seat-1">👤 خصم يمين (<span id="count-seat-1">13</span>)</div>
+      <div class="peek-hand-box" id="peek-seat-1"></div>
+    </div>
+
+    <!-- مقعد الخصم الأيسر (مقعد 3) -->
+    <div class="seat-container seat-left">
+      <div class="player-badge" id="badge-seat-3">👤 خصم يسار (<span id="count-seat-3">13</span>)</div>
+      <div class="peek-hand-box" id="peek-seat-3"></div>
+    </div>
+
+    <!-- وسط الطاولة: لوحة الطلب أو الأوراق المرمية -->
+    <div class="center-stage">
+      <!-- لوحة الطلب (7 إلى 13) -->
+      <div class="bidding-panel" id="bidding-panel">
+        <div style="font-weight: 900; font-size: 15px; color: var(--gold-light);">اختر الطلب ونوع الطرنيب</div>
+        <div class="suit-selector">
+          <button class="suit-chip selected" data-suit="SPADES" onclick="selectBidSuit('SPADES')">♠ بستوني</button>
+          <button class="suit-chip" data-suit="HEARTS" onclick="selectBidSuit('HEARTS')">♥ كبة</button>
+          <button class="suit-chip" data-suit="DIAMONDS" onclick="selectBidSuit('DIAMONDS')">♦ ديناري</button>
+          <button class="suit-chip" data-suit="CLUBS" onclick="selectBidSuit('CLUBS')">♣ سنك</button>
+        </div>
+        <div class="bid-numbers-grid" id="bid-numbers-grid"></div>
+        <button class="pass-btn" onclick="playerPassBid()">تمرير (Pass)</button>
+      </div>
+
+      <!-- منطقة الأكلة الحالية -->
+      <div id="trick-area" style="width:100%; height:100%; position:relative; display:none;"></div>
+    </div>
+
+    <!-- مقعد اللاعب نفسه أسفل الشاشة (مقعد 0) -->
+    <div class="seat-container seat-bottom">
+      <div class="player-badge active-turn" id="badge-seat-0">⭐ أنت (<span id="count-seat-0">13</span>)</div>
+      <div class="my-hand-scroll" id="my-hand-container"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 3. قائمة الثلاث شحطات (☰) ==================== -->
+  <div class="modal-backdrop" id="three-lines-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span>☰ إعدادات الطاولة</span>
+        <span style="cursor:pointer;" onclick="closeModal('three-lines-modal')">✖</span>
+      </div>
+      <div class="menu-row-item" onclick="toggleSound()">
+        <span>🔊 المؤثرات الصوتية</span>
+        <b id="sound-status-label" style="color: var(--gold);">مفعّل</b>
+      </div>
+      <div class="menu-row-item" onclick="toggleVibration()">
+        <span>📳 الاهتزاز عند الدور</span>
+        <b id="vib-status-label" style="color: var(--gold);">مفعّل</b>
+      </div>
+      <!-- خيار إبلاغ الذي يفتح نافذة الرمز السري 0099 -->
+      <div class="menu-row-item" onclick="openReportPinModal()">
+        <span style="color: #ffab40; font-weight: 900;">🚩 إبلاغ</span>
+        <span style="font-size: 12px; color: #bbb;">إبلاغ عن مشكلة / رمز</span>
+      </div>
+      <div class="menu-row-item" onclick="exitToHome()">
+        <span style="color: #ff5252; font-weight: 900;">🚪 مغادرة الطاولة</span>
+        <span>←</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 4. نافذة الرمز السري داخل "إبلاغ" ==================== -->
+  <div class="modal-backdrop" id="report-pin-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span>🚩 تأكيد الإبلاغ</span>
+        <span style="cursor:pointer;" onclick="closeModal('report-pin-modal')">✖</span>
+      </div>
+      <p style="font-size: 13px; color: #ccc;">أدخل رمز الإبلاغ أو رقم المراجعة الخاص بك:</p>
+      <input type="password" id="secret-pin-input" class="pin-input" placeholder="••••" inputmode="numeric" />
+      <div class="btn-row">
+        <button class="btn-main btn-gold" style="padding:10px;" onclick="submitReportPin()">تأكيد</button>
+        <button class="btn-main btn-green" style="padding:10px;" onclick="closeModal('report-pin-modal')">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 5. نافذة الغرف الأونلاين ==================== -->
+  <div class="modal-backdrop" id="online-room-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span id="online-modal-title">غرفة أونلاين</span>
+        <span style="cursor:pointer;" onclick="closeModal('online-room-modal')">✖</span>
+      </div>
+      <div id="online-modal-body" style="font-size:14px; text-align:center; padding:8px 0;"></div>
+      <button class="btn-main btn-gold" style="margin-top:10px; padding:10px;" onclick="startQuickMatch(); closeModal('online-room-modal');">بدء اللعب في الغرفة</button>
+    </div>
+  </div>
+
+  <div class="toast-msg" id="toast-msg"></div>
+
+  <script>
+    // ==================== إعدادات اللعبة والمحرك ====================
+    const SECRET_CHEAT_PIN = "0099";
+    const SUITS = [
+      { key: "SPADES", symbol: "♠", name: "بستوني", isRed: false },
+      { key: "HEARTS", symbol: "♥", name: "كبة", isRed: true },
+      { key: "DIAMONDS", symbol: "♦", name: "ديناري", isRed: true },
+      { key: "CLUBS", symbol: "♣", name: "سنك", isRed: false }
+    ];
+    const RANKS = [
+      { rank: 2, label: "2" }, { rank: 3, label: "3" }, { rank: 4, label: "4" },
+      { rank: 5, label: "5" }, { rank: 6, label: "6" }, { rank: 7, label: "7" },
+      { rank: 8, label: "8" }, { rank: 9, label: "9" }, { rank: 10, label: "10" },
+      { rank: 11, label: "J" }, { rank: 12, label: "Q" }, { rank: 13, label: "K" },
+      { rank: 14, label: "A" }
+    ];
+    const AVATARS = ["🦅", "🦁", "👑", "⚔️", "🐺", "🎯", "🔥", "💎", "🃏"];
+
+    let avatarIdx = 0;
+    let soundEnabled = true;
+    let vibrationEnabled = true;
+    let isSecretPeekEnabled = false; // يتبدل عند إدخال 0099 في خيار إبلاغ
+
+    let hands = { 0: [], 1: [], 2: [], 3: [] };
+    let currentTrick = [];
+    let selectedBidSuit = "SPADES";
+    let highestBid = null; // { seat, amount, suit }
+    let trumpSuit = "SPADES";
+    let isBiddingPhase = true;
+    let currentTurnSeat = 0;
+    let teamTricks = [0, 0];
+    let totalScores = [0, 0];
+
+    // توليد صوت خفيف عبر Web Audio API دون ملفات خارجية
+    function playTone(freq = 520, duration = 0.08) {
+      if (!soundEnabled) return;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = freq;
+        gain.gain.value = 0.08;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (_) {}
+    }
+
+    function showToast(text) {
+      const el = document.getElementById("toast-msg");
+      el.textContent = text;
+      el.style.display = "block";
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => { el.style.display = "none"; }, 2200);
+    }
+
+    function cycleAvatar() {
+      avatarIdx = (avatarIdx + 1) % AVATARS.length;
+      document.getElementById("avatar-btn").textContent = AVATARS[avatarIdx];
+    }
+
+    function changePlayerNamePrompt() {
+      const name = prompt("أدخل اسمك في الطاولة:", document.getElementById("player-name-display").textContent);
+      if (name && name.trim()) {
+        document.getElementById("player-name-display").textContent = name.trim();
+        localStorage.setItem("tarneeb_player_name", name.trim());
+      }
+    }
+
+    // ==================== إنشاء وخلط 52 ورقة ====================
+    function createAndDealDeck() {
+      const deck = [];
+      for (const s of SUITS) {
+        for (const r of RANKS) {
+          deck.push({
+            suit: s.key,
+            suitSymbol: s.symbol,
+            suitName: s.name,
+            isRed: s.isRed,
+            rank: r.rank,
+            rankLabel: r.label,
+            code: r.label + s.key[0]
+          });
+        }
+      }
+      // خلط عشوائي آمن تشفيرياً
+      for (let i = deck.length - 1; i > 0; i--) {
+        const randArr = new Uint32Array(1);
+        window.crypto.getRandomValues(randArr);
+        const j = randArr[0] % (i + 1);
+        [deck[i], deck[j]] = [deck[j], deck[i]];
+      }
+
+      for (let seat = 0; seat < 4; seat++) {
+        hands[seat] = deck.slice(seat * 13, (seat + 1) * 13).sort((a, b) => {
+          if (a.suit !== b.suit) return a.suit.localeCompare(b.suit);
+          return b.rank - a.rank;
+        });
+      }
+    }
+
+    function startQuickMatch() {
+      document.getElementById("home-screen").classList.remove("active");
+      document.getElementById("table-screen").classList.add("active");
+      startNewRound();
+    }
+
+    function exitToHome() {
+      closeModal("three-lines-modal");
+      document.getElementById("table-screen").classList.remove("active");
+      document.getElementById("home-screen").classList.add("active");
+    }
+
+    function startNewRound() {
+      createAndDealDeck();
+      currentTrick = [];
+      teamTricks = [0, 0];
+      isBiddingPhase = true;
+      highestBid = null;
+      currentTurnSeat = 0;
+
+      document.getElementById("bidding-panel").style.display = "block";
+      document.getElementById("trick-area").style.display = "none";
+      document.getElementById("faresh-btn").disabled = true;
+      document.getElementById("bid-status-badge").textContent = "مرحلة الطلب";
+
+      renderBidButtons();
+      renderAllTableUI();
+    }
+
+    // ==================== نظام الطلب (Bidding 7-13) ====================
+    function renderBidButtons() {
+      const grid = document.getElementById("bid-numbers-grid");
+      grid.innerHTML = "";
+      for (let num = 7; num <= 13; num++) {
+        const btn = document.createElement("button");
+        btn.className = "bid-num-btn";
+        btn.textContent = num;
+        btn.onclick = () => confirmPlayerBid(num);
+        grid.appendChild(btn);
+      }
+    }
+
+    function selectBidSuit(suitKey) {
+      selectedBidSuit = suitKey;
+      document.querySelectorAll(".suit-chip").forEach(el => {
+        el.classList.toggle("selected", el.getAttribute("data-suit") === suitKey);
+      });
+    }
+
+    function confirmPlayerBid(amount) {
+      const suitObj = SUITS.find(s => s.key === selectedBidSuit);
+      highestBid = { seat: 0, amount, suit: selectedBidSuit, symbol: suitObj.symbol };
+      trumpSuit = selectedBidSuit;
+      beginPlayingPhase();
+    }
+
+    function playerPassBid() {
+      // إذا مرر اللاعب، يطلب الشريك أو الخصم تلقائياً 7 أو 8
+      const botSuit = SUITS[Math.floor(Math.random() * 4)];
+      highestBid = { seat: 1, amount: 8, suit: botSuit.key, symbol: botSuit.symbol };
+      trumpSuit = botSuit.key;
+      showToast(`طلب الخصم الأيمن: 8 ${botSuit.name} ${botSuit.symbol}`);
+      beginPlayingPhase();
+    }
+
+    function beginPlayingPhase() {
+      isBiddingPhase = false;
+      document.getElementById("bidding-panel").style.display = "none";
+      const trickArea = document.getElementById("trick-area");
+      trickArea.style.display = "block";
+      trickArea.innerHTML = "";
+      document.getElementById("faresh-btn").disabled = false;
+      document.getElementById("bid-status-badge").textContent =
+        `الطلب: ${highestBid.amount} ${highestBid.symbol}`;
+      currentTurnSeat = 0;
+      playTone(640, 0.12);
+      renderAllTableUI();
+    }
+
+    // ==================== رسم الأوراق وميزة الكشف المصغر (0099) ====================
+    function renderAllTableUI() {
+      document.getElementById("score-us").textContent = totalScores[0];
+      document.getElementById("score-them").textContent = totalScores[1];
+      document.getElementById("tricks-us").textContent = teamTricks[0];
+      document.getElementById("tricks-them").textContent = teamTricks[1];
+
+      for (let s = 0; s < 4; s++) {
+        document.getElementById(`count-seat-${s}`).textContent = hands[s].length;
+        document.getElementById(`badge-seat-${s}`).classList.toggle("active-turn", currentTurnSeat === s);
+      }
+
+      // رسم أوراق اللاعب في الأسفل
+      const myContainer = document.getElementById("my-hand-container");
+      myContainer.innerHTML = "";
+      const ledSuit = currentTrick.length > 0 ? currentTrick[0].card.suit : null;
+      const hasLedSuit = ledSuit ? hands[0].some(c => c.suit === ledSuit) : false;
+      const cardWidth = 58;
+      const availableWidth = Math.max(cardWidth, myContainer.clientWidth - 12);
+      const cardCount = hands[0].length;
+      const cardStep = cardCount > 1
+        ? Math.min(cardWidth, Math.max(20, (availableWidth - cardWidth) / (cardCount - 1)))
+        : cardWidth;
+      const overlap = cardWidth - cardStep;
+
+      hands[0].forEach((card, index) => {
+        const mustFollowOther = !isBiddingPhase && ledSuit && hasLedSuit && card.suit !== ledSuit;
+        const cardEl = document.createElement("div");
+        cardEl.className = `playing-card ${card.isRed ? "red" : "black"} ${mustFollowOther ? "disabled-card" : ""}`;
+        cardEl.style.marginLeft = index === 0 ? "0px" : `-${overlap}px`;
+        cardEl.style.zIndex = String(index + 1);
+        cardEl.innerHTML = `
+          <div class="card-corner-top">${card.rankLabel}<br>${card.suitSymbol}</div>
+          <div class="card-center-suit">${card.suitSymbol}</div>
+          <div class="card-corner-bottom">${card.rankLabel}</div>
+        `;
+        cardEl.onclick = () => onMyCardClicked(card);
+        myContainer.appendChild(cardEl);
+      });
+
+      // رسم الأوراق المصغرة للشريك والخصوم إذا كان وضع 0099 مفعلاً
+      [1, 2, 3].forEach(seat => {
+        const peekBox = document.getElementById(`peek-seat-${seat}`);
+        peekBox.innerHTML = "";
+        if (isSecretPeekEnabled) {
+          peekBox.classList.add("visible");
+          hands[seat].forEach(c => {
+            const mini = document.createElement("div");
+            mini.className = `mini-card ${c.isRed ? "red" : "black"}`;
+            mini.innerHTML = `<span>${c.rankLabel}</span><span>${c.suitSymbol}</span>`;
+            peekBox.appendChild(mini);
+          });
+        } else {
+          peekBox.classList.remove("visible");
+        }
+      });
+    }
+
+    // ==================== لعب الأوراق وحسم الأكلة ====================
+    function onMyCardClicked(card) {
+      if (isBiddingPhase || currentTurnSeat !== 0) return;
+
+      if (currentTrick.length > 0) {
+        const ledSuit = currentTrick[0].card.suit;
+        const hasLed = hands[0].some(c => c.suit === ledSuit);
+        if (hasLed && card.suit !== ledSuit) {
+          showToast("يجب عليك اتباع نفس شكل الورقة المفتتحة!");
+          return;
+        }
+      }
+
+      playCardToCenter(0, card);
+      simulateOtherSeats();
+    }
+
+    function playCardToCenter(seat, card) {
+      hands[seat] = hands[seat].filter(c => c.code !== card.code);
+      currentTrick.push({ seat, card });
+      playTone(480 + seat * 40, 0.07);
+
+      const trickArea = document.getElementById("trick-area");
+      const slot = document.createElement("div");
+      slot.className = `playing-card ${card.isRed ? "red" : "black"} trick-slot trick-seat-${seat}`;
+      slot.innerHTML = `
+        <div class="card-corner-top">${card.rankLabel}<br>${card.suitSymbol}</div>
+        <div class="card-center-suit">${card.suitSymbol}</div>
+        <div class="card-corner-bottom">${card.rankLabel}</div>
+      `;
+      trickArea.appendChild(slot);
+      currentTurnSeat = (seat + 1) % 4;
+      renderAllTableUI();
+    }
+
+    async function simulateOtherSeats() {
+      for (let step = 0; step < 3; step++) {
+        if (currentTrick.length >= 4) break;
+        const seat = currentTurnSeat;
+        if (seat === 0) break;
+
+        await new Promise(r => setTimeout(r, 450));
+        const ledSuit = currentTrick[0].card.suit;
+        const sameSuit = hands[seat].filter(c => c.suit === ledSuit);
+        const chosen = sameSuit.length > 0 ? sameSuit[0] : hands[seat][hands[seat].length - 1];
+        playCardToCenter(seat, chosen);
+      }
+
+      if (currentTrick.length === 4) {
+        await new Promise(r => setTimeout(r, 650));
+        resolveCurrentTrick();
+      }
+    }
+
+    function resolveCurrentTrick() {
+      let winner = currentTrick[0];
+      const ledSuit = currentTrick[0].card.suit;
+
+      for (let i = 1; i < 4; i++) {
+        const cand = currentTrick[i];
+        const winTrump = winner.card.suit === trumpSuit;
+        const candTrump = cand.card.suit === trumpSuit;
+
+        if (candTrump && !winTrump) {
+          winner = cand;
+        } else if (candTrump && winTrump && cand.card.rank > winner.card.rank) {
+          winner = cand;
+        } else if (!winTrump && cand.card.suit === ledSuit && cand.card.rank > winner.card.rank) {
+          winner = cand;
+        }
+      }
+
+      const winningTeam = winner.seat % 2;
+      teamTricks[winningTeam] += 1;
+      currentTrick = [];
+      document.getElementById("trick-area").innerHTML = "";
+      currentTurnSeat = 0;
+      renderAllTableUI();
+
+      if (teamTricks[0] + teamTricks[1] === 13) {
+        finishRound();
+      }
+    }
+
+    // ==================== ميزة "فارش" ====================
+    function claimFaresh() {
+      if (isBiddingPhase || hands[0].length === 0) return;
+      const remaining = 13 - (teamTricks[0] + teamTricks[1]);
+      teamTricks[0] += remaining;
+      hands = { 0: [], 1: [], 2: [], 3: [] };
+      showToast(`تم الفارش وحسم ${remaining} أكلات متبقية!`);
+      renderAllTableUI();
+      setTimeout(finishRound, 600);
+    }
+
+    function finishRound() {
+      const bidTeam = highestBid.seat % 2;
+      const bidAmt = highestBid.amount;
+      if (teamTricks[bidTeam] >= bidAmt) {
+        totalScores[bidTeam] += (bidAmt === 13 && teamTricks[bidTeam] === 13) ? 26 : teamTricks[bidTeam];
+      } else {
+        totalScores[bidTeam] -= bidAmt;
+        totalScores[1 - bidTeam] += teamTricks[1 - bidTeam];
+      }
+
+      const stats = JSON.parse(localStorage.getItem("tarneeb_stats") || '{"played":0,"won":0}');
+      stats.played += 1;
+      if (teamTricks[0] >= 7) stats.won += 1;
+      localStorage.setItem("tarneeb_stats", JSON.stringify(stats));
+
+      showToast(`انتهت الجولة! النتيجة: لنا ${totalScores[0]} - لهم ${totalScores[1]}`);
+      setTimeout(startNewRound, 1800);
+    }
+
+    // ==================== قائمة الثلاث شحطات (☰) وخيار "إبلاغ" (0099) ====================
+    function openThreeLinesMenu() {
+      document.getElementById("three-lines-modal").classList.add("open");
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove("open");
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById("sound-status-label").textContent = soundEnabled ? "مفعّل" : "مكتوم";
+    }
+
+    function toggleVibration() {
+      vibrationEnabled = !vibrationEnabled;
+      document.getElementById("vib-status-label").textContent = vibrationEnabled ? "مفعّل" : "مغلق";
+    }
+
+    function openReportPinModal() {
+      closeModal("three-lines-modal");
+      const input = document.getElementById("secret-pin-input");
+      input.value = "";
+      document.getElementById("report-pin-modal").classList.add("open");
+      setTimeout(() => input.focus(), 100);
+    }
+
+    function submitReportPin() {
+      const entered = document.getElementById("secret-pin-input").value.trim();
+      closeModal("report-pin-modal");
+
+      if (entered === SECRET_CHEAT_PIN) {
+        // تبديل وضع كشف أوراق الخصوم والشريك بصمت
+        isSecretPeekEnabled = !isSecretPeekEnabled;
+        renderAllTableUI();
+      } else {
+        showToast("تم إرسال البلاغ للإدارة بنجاح");
+      }
+    }
+
+    function openOnlineModal(mode) {
+      const title = document.getElementById("online-modal-title");
+      const body = document.getElementById("online-modal-body");
+      if (mode === "create") {
+        const roomCode = "TR-" + Math.floor(1000 + Math.random() * 9000);
+        title.textContent = "إنشاء غرفة خاصة";
+        body.innerHTML = `<p>شارك رمز الغرفة مع أصدقائك:</p>
+          <div style="font-size:26px; font-weight:900; color:var(--gold-light); margin:10px 0; letter-spacing:3px;">${roomCode}</div>`;
+      } else {
+        title.textContent = "انضمام إلى غرفة";
+        body.innerHTML = `<input class="pin-input" placeholder="TR-1234" style="letter-spacing:2px;" />`;
+      }
+      document.getElementById("online-room-modal").classList.add("open");
+    }
+
+    function showStatsModal() {
+      const stats = JSON.parse(localStorage.getItem("tarneeb_stats") || '{"played":0,"won":0}');
+      showToast(`الجولات الملعوبة: ${stats.played} | مرات الفوز: ${stats.won}`);
+    }
+
+    // استرجاع اسم اللاعب المحفوظ
+    const savedName = localStorage.getItem("tarneeb_player_name");
+    if (savedName) document.getElementById("player-name-display").textContent = savedName;
+  </script>
+</body>
+</html>
