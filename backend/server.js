@@ -90,6 +90,7 @@ function publicPlayers(room) {
 function sendRoom(room) {
   io.to(room.code).emit('room_update', {
     roomCode: room.code, targetScore: room.targetScore,
+    scoringPreset: room.scoringPreset || 'jawaker',
     status: room.status, players: publicPlayers(room),
     partnerSeat: room.partnerSeat, dealMode: room.dealMode,
   });
@@ -101,6 +102,7 @@ function stateFor(room, seat) {
     targetScore: room.targetScore,
     status: room.status,
     phase: room.phase,
+    scoringPreset: room.scoringPreset || 'jawaker',
     players: publicPlayers(room),
     mySeat: seat,
     myHand: room.hands ? sorted(room.hands[seat]) : [],
@@ -269,7 +271,12 @@ function finishRound(room) {
   const bidTeam = teamForSeat(room, room.bid.seat);
   const otherTeam = 1 - bidTeam;
   const before = [...room.scores];
-  const { scores, bidMet } = scoreRound(room.scores, room.tricks, bidTeam, room.bid.amount);
+  const scoringOptions = room.scoringPreset === 'house_16_14'
+    ? { declaredKabootPoints: 16, sweepPoints: 14 }
+    : {};
+  const { scores, bidMet } = scoreRound(
+    room.scores, room.tricks, bidTeam, room.bid.amount, scoringOptions,
+  );
   room.scores = scores;
   room.lastRound = {
     bid: room.bid, tricks: [...room.tricks], before,
@@ -328,6 +335,7 @@ function createRoom(socket, payload) {
   const token = crypto.randomBytes(18).toString('hex');
   const room = {
     code, targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
+    scoringPreset: payload.scoringPreset === 'house_16_14' ? 'house_16_14' : 'jawaker',
     hostToken: token, players: Array(4).fill(null), scores: [0, 0],
     partnerSeat: null, dealMode: 'random', reports: [],
     tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
