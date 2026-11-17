@@ -173,8 +173,8 @@ function applyBid(room, seat, action) {
       broadcastState(room);
     } else {
       room.dealerSeat = (room.dealerSeat + 1) % 4;
-      startRound(room);
-      io.to(room.code).emit('notice', 'مرّ الجميع؛ تمت إعادة توزيع الورق');
+      beginCutPhase(room);
+      io.to(room.code).emit('notice', 'مرّ الجميع؛ اقطعوا الشدّة لإعادة التوزيع');
     }
     return;
   }
