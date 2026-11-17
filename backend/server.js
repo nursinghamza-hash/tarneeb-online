@@ -127,11 +127,11 @@ function startRound(room, preparedDeck = null) {
   clearTurnTimer(room);
   const deck = preparedDeck || makeDeck();
   room.cutSeat = null;
-  // Deal one card at a time, starting with the player to the dealer's right.
+  // Deal one card at a time, starting to the dealer's right (seat - 1 in the table layout).
   // This preserves the real-table dealing order instead of dealing four blocks.
   room.hands = [[], [], [], []];
   for (let i = 0; i < deck.length; i++) {
-    const seat = (room.dealerSeat + 1 + i) % 4;
+    const seat = (room.dealerSeat + 3 + i) % 4;
     room.hands[seat].push(deck[i]);
   }
   room.hands = room.hands.map(sorted);
@@ -141,7 +141,7 @@ function startRound(room, preparedDeck = null) {
   room.passed = [];
   room.phase = 'bidding';
   room.status = 'playing';
-  room.turnSeat = (room.dealerSeat + 1) % 4;
+  room.turnSeat = (room.dealerSeat + 3) % 4;
   room.bidTurn = room.turnSeat;
   room.winnerTeam = null;
   room.lastRound = null;
@@ -158,7 +158,7 @@ function legalCards(room, seat) {
 }
 function nextBidder(room, fromSeat) {
   for (let step = 1; step <= 4; step++) {
-    const seat = (fromSeat + step) % 4;
+    const seat = (fromSeat + 4 - step) % 4;
     if (!room.passed.includes(seat)) return seat;
   }
   return null;
@@ -184,7 +184,7 @@ function applyBid(room, seat, action) {
       startTurnTimer(room);
       broadcastState(room);
     } else {
-      room.dealerSeat = (room.dealerSeat + 1) % 4;
+      room.dealerSeat = (room.dealerSeat + 3) % 4;
       beginNextDeal(room);
       io.to(room.code).emit('notice', 'مرّ الجميع؛ ستبدأ جولة توزيع جديدة');
     }
@@ -201,7 +201,7 @@ function applyBid(room, seat, action) {
   room.turnSeat = nextBidder(room, seat);
   if (room.turnSeat === null) {
     room.phase = 'playing';
-    room.turnSeat = room.bid ? room.bid.seat : (room.dealerSeat + 1) % 4;
+    room.turnSeat = room.bid ? room.bid.seat : (room.dealerSeat + 3) % 4;
   }
   startTurnTimer(room);
   broadcastState(room);
@@ -231,9 +231,25 @@ function finishRound(room) {
   const otherTeam = 1 - bidTeam;
   const bidMet = room.tricks[bidTeam] >= room.bid.amount;
   const before = [...room.scores];
-  if (bidMet) room.scores[bidTeam] += room.tricks[bidTeam];
-  else room.scores[bidTeam] -= room.bid.amount;
-  room.scores[otherTeam] += room.tricks[otherTeam];
+  const allTricksTeam = room.tricks[0] === 13 ? 0 : (room.tricks[1] === 13 ? 1 : null);
+
+  // Jawaker-style Tarneeb scoring: 13 tricks are a special sweep.
+  if (room.bid.amount === 13) {
+    if (bidMet) {
+      room.scores[bidTeam] += 26;
+    } else {
+      room.scores[bidTeam] -= 16;
+      room.scores[otherTeam] += allTricksTeam === otherTeam ? 16 : room.tricks[otherTeam];
+    }
+  } else if (allTricksTeam !== null) {
+    room.scores[allTricksTeam] += 16;
+    if (allTricksTeam === otherTeam) room.scores[bidTeam] -= room.bid.amount;
+  } else if (bidMet) {
+    room.scores[bidTeam] += room.tricks[bidTeam];
+  } else {
+    room.scores[bidTeam] -= room.bid.amount;
+    room.scores[otherTeam] += room.tricks[otherTeam];
+  }
   room.lastRound = {
     bid: room.bid, tricks: [...room.tricks], before,
     after: [...room.scores], bidMet,
@@ -264,7 +280,7 @@ function playCard(room, seat, cardCode, automatic = false) {
   if (room.currentTrick.length === 4) {
     completeTrick(room);
   } else {
-    room.turnSeat = (seat + 1) % 4;
+    room.turnSeat = (seat + 3) % 4;
   }
   if (room.phase === 'playing') startTurnTimer(room);
   broadcastState(room);
@@ -316,7 +332,7 @@ function joinRoom(socket, payload) {
 }
 function beginCutPhase(room) {
   room.preparedDeck = makeDeck();
-  room.cutSeat = (room.dealerSeat + 3) % 4;
+  room.cutSeat = (room.dealerSeat + 1) % 4;
   room.phase = 'cutting';
   room.status = 'playing';
   room.turnSeat = room.cutSeat;
