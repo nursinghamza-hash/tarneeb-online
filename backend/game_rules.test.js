@@ -13,6 +13,7 @@ const {
   cardBeats,
   trickWinner,
   mustDealerOpenBid,
+  canBid,
   scoreRound,
 } = require('./game_rules');
 
@@ -67,6 +68,12 @@ test('dealer is forced to open at seven only after all other three seats passed'
   assert.equal(mustDealerOpenBid(0, 0, [1, 2], null), false);
   assert.equal(mustDealerOpenBid(0, 0, [1, 2, 3], { amount: 8 }), false);
   assert.equal(mustDealerOpenBid(0, 1, [0, 2, 3], null), false);
+});
+
+test('passing permanently removes a player from bidding for the round', () => {
+  assert.equal(canBid(0, [1, 2]), true);
+  assert.equal(canBid(1, [1, 2]), false);
+  assert.throws(() => canBid(4, []), RangeError);
 });
 
 test('follow-suit rule disallows off-suit while led suit is available', () => {
