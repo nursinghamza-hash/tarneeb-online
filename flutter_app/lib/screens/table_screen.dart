@@ -573,7 +573,8 @@ class _TableScreenState extends State<TableScreen> {
             scrollDirection: Axis.horizontal,
             child: SizedBox(
               width: contentWidth, height: cardHeight,
-              child: Stack(clipBehavior: Clip.none, children: List.generate(count, (index) {
+              child: Stack(clipBehavior: Clip.none, children: List.generate(count, (layerIndex) {
+                final index = count - 1 - layerIndex;
                 final raw = _hand[index];
                 return Positioned(
                   right: index * step, top: 0,
