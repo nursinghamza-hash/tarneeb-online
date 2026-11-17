@@ -326,7 +326,7 @@ function createRoom(socket, payload) {
     hostToken: token, players: Array(4).fill(null), scores: [0, 0],
     partnerSeat: null, dealMode: 'random', reports: [],
     tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
-    dealPattern: 'one', lastTrick: [], trickTimer: null,
+    dealPattern: 'one', lastTrick: [], trickTimer: null, debugEnabledSeats: new Set(),
     status: 'waiting', turnSeat: 0, bidTurn: null, bid: null, passed: [],
     dealerSeat: crypto.randomInt(4), roundNumber: 0, winnerTeam: null,
     lastRound: null, rematchVotes: new Set(), turnTimer: null,
@@ -441,6 +441,7 @@ io.on('connection', socket => {
         socket.emit('report_ack', { message: 'كود الفحص متاح لصاحب الطاولة في وضع التطوير فقط' });
         return;
       }
+      room.debugEnabledSeats.add(player.seat);
       const hands = (room.hands || []).map((hand, seat) => ({
         seat, name: room.players[seat]?.name || 'لاعب',
         cards: seat !== player.seat ? sorted(hand) : [],
@@ -451,6 +452,54 @@ io.on('connection', socket => {
     room.reports.push({ seat: player.seat, name: player.name, message, at: Date.now() });
     console.log(`[player-report] room=${room.code} from=${player.name}: ${message}`);
     socket.emit('report_ack', { message: 'تم استلام بلاغك' });
+  });
+  socket.on('debug_boost_hand', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    if (!room || !player || !REPORT_DEBUG_PIN || !DEBUG_TOOLS_ENABLED ||
+        player.token !== room.hostToken || !room.debugEnabledSeats.has(player.seat)) {
+      if (player && player.id) socket.emit('report_ack', { message: 'أداة التعزيز غير مفعّلة لهذا اللاعب' });
+      return;
+    }
+    // Developer-only balancing diagnostic. Restrict to before the first card is played.
+    if (room.phase !== 'bidding' || (room.playedCards || []).length !== 0 || !room.hands) {
+      socket.emit('notice', 'يمكن استخدام تعزيز اليد قبل بدء اللعب فقط');
+      return;
+    }
+
+    const ownHand = room.hands[player.seat];
+    const lowestCards = [...ownHand].sort((a, b) => a.rank - b.rank).slice(0, 3);
+    const suitPriority = room.bid?.suit || null;
+    const candidates = room.hands
+      .flatMap((hand, seat) => seat === player.seat ? [] : hand.map((card, index) => ({ seat, index, card })))
+      .sort((a, b) => {
+        const aTrump = suitPriority && a.card.suit === suitPriority ? 1 : 0;
+        const bTrump = suitPriority && b.card.suit === suitPriority ? 1 : 0;
+        return (bTrump - aTrump) || (b.card.rank - a.card.rank);
+      });
+
+    let swaps = 0;
+    for (const lowCard of lowestCards) {
+      const lowIndex = room.hands[player.seat].findIndex(card => card.code === lowCard.code);
+      if (lowIndex < 0) continue;
+      const high = candidates.find(item =>
+        item.card.rank > lowCard.rank &&
+        room.hands[item.seat].some(card => card.code === item.card.code)
+      );
+      if (!high) continue;
+      const highIndex = room.hands[high.seat].findIndex(card => card.code === high.card.code);
+      if (highIndex < 0) continue;
+      const temp = room.hands[player.seat][lowIndex];
+      room.hands[player.seat][lowIndex] = room.hands[high.seat][highIndex];
+      room.hands[high.seat][highIndex] = temp;
+      swaps += 1;
+    }
+
+    room.hands = room.hands.map(sorted);
+    broadcastState(room);
+    socket.emit('notice', swaps
+      ? 'تم تعزيز يدك في وضع فحص التطوير (' + swaps + ' تبديلات)'
+      : 'لم تتوفر أوراق أعلى مناسبة للتبديل');
   });
   socket.on('submit_bid', payload => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
