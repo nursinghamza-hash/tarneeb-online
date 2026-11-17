@@ -303,6 +303,10 @@ function startGame(room, player) {
   startRound(room);
 }
 io.on('connection', socket => {
+  console.log(`[socket] connected: ${socket.id} transport=${socket.conn.transport.name}`);
+  socket.on('disconnect', reason => {
+    console.log(`[socket] disconnected: ${socket.id} reason=${reason}`);
+  });
   socket.on('create_room', payload => createRoom(socket, payload || {}));
   socket.on('join_room', payload => joinRoom(socket, payload || {}));
 
