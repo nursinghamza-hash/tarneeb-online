@@ -32,7 +32,7 @@ const suitMeta = {
   SPADES: { symbol: '♠', name: 'بستوني' },
   HEARTS: { symbol: '♥', name: 'كبة' },
   DIAMONDS: { symbol: '♦', name: 'ديناري' },
-  CLUBS: { symbol: '♣', name: 'سنك' },
+  CLUBS: { symbol: '♣', name: 'سباتي' },
 };
 const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
 // Store this private diagnostic PIN only in Render environment settings (REPORT_DEBUG_PIN).
