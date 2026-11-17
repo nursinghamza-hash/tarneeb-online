@@ -651,15 +651,14 @@ class _TableScreenState extends State<TableScreen> {
                   right: index * step,
                   top: 5,
                   child: Draggable<dynamic>(
-                      data: raw,
-                      maxSimultaneousDrags: canPlay ? 1 : 0,
-                      feedback: Material(
-                        color: Colors.transparent,
-                        child: PlayingCardWidget(card: card, isHand: true, isSelected: true, isPlayable: false),
-                      ),
-                      childWhenDragging: Opacity(opacity: .35, child: face),
-                      child: face,
+                    data: raw,
+                    maxSimultaneousDrags: canPlay ? 1 : 0,
+                    feedback: Material(
+                      color: Colors.transparent,
+                      child: PlayingCardWidget(card: card, isHand: true, isSelected: true, isPlayable: false),
                     ),
+                    childWhenDragging: Opacity(opacity: .35, child: face),
+                    child: face,
                   ),
                 );
               })),
