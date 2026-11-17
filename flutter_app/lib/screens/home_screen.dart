@@ -98,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   IO.Socket _newSocket() => IO.io(
     _serverUrl.trim(),
-    IO.OptionBuilder().setTransports(['websocket']).disableAutoConnect()
+    IO.OptionBuilder().setTransports(['polling']).disableAutoConnect()
       .enableReconnection().setReconnectionAttempts(999)
       .setReconnectionDelay(1000).build(),
   );
@@ -133,8 +133,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _busy = false);
       socket.disconnect();
     });
-    socket.onConnectError((_) {
-      _toast('تعذر الاتصال بالخادم. تأكد من الرابط وأن الخادم يعمل');
+    socket.onConnectError((error) {
+      debugPrint('Socket.IO create connect_error: $error');
+      _toast('فشل الاتصال: $error');
       if (mounted) setState(() => _busy = false);
     });
     socket.connect();
@@ -177,8 +178,9 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _busy = false);
       socket.disconnect();
     });
-    socket.onConnectError((_) {
-      _toast('تعذر الاتصال بالخادم. افحص رابط الخادم');
+    socket.onConnectError((error) {
+      debugPrint('Socket.IO join connect_error: $error');
+      _toast('فشل الاتصال: $error');
       if (mounted) setState(() => _busy = false);
     });
     socket.connect();
