@@ -279,6 +279,89 @@ class _TableScreenState extends State<TableScreen> {
     _onNotice('تم نسخ رقم الطاولة');
   }
 
+  void _openScoreHistory() {
+    final history = (_state['roundHistory'] as List?) ?? const [];
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: kPanel,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(
+          child: SizedBox(
+            height: MediaQuery.of(ctx).size.height * .78,
+            child: Column(children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Row(children: [
+                  const Icon(Icons.history_rounded, color: kGold),
+                  const SizedBox(width: 8),
+                  const Expanded(child: Text('سجل جولات المباراة', style: TextStyle(color: kGold, fontSize: 16, fontWeight: FontWeight.bold))),
+                  IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close, color: Colors.white70)),
+                ]),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text('عدد الجولات المكتملة: ${history.length} • النتيجة الحالية: ${_scores[0]} - ${_scores[1]}',
+                  style: const TextStyle(color: Colors.white60, fontSize: 11)),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: history.isEmpty
+                  ? const Center(child: Text('لم تكتمل أي جولة بعد', style: TextStyle(color: Colors.white54)))
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                      itemCount: history.length,
+                      itemBuilder: (context, index) {
+                        final round = Map<String, dynamic>.from(history[index] as Map);
+                        final bid = Map<String, dynamic>.from(round['bid'] as Map);
+                        final tricks = (round['tricks'] as List).map((v) => (v as num).toInt()).toList();
+                        final before = (round['before'] as List).map((v) => (v as num).toInt()).toList();
+                        final after = (round['after'] as List).map((v) => (v as num).toInt()).toList();
+                        final bidSeat = (bid['seat'] as num).toInt();
+                        final bidTeam = (round['bidTeam'] as num?)?.toInt() ?? ((bidSeat == 0 || bidSeat == 2) ? 0 : 1);
+                        final usTeam = bidTeam == _myTeam;
+                        final suit = (bid['suit'] ?? '').toString();
+                        final suitLabel = _suitNames[suit] ?? suit;
+                        final made = round['bidMet'] == true;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 9),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(.2),
+                            borderRadius: BorderRadius.circular(13),
+                            border: Border.all(color: made ? const Color(0x5534D399) : const Color(0x55F87171)),
+                          ),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Row(children: [
+                              Text('الجولة ${round['roundNumber'] ?? index + 1}', style: const TextStyle(color: kGold, fontWeight: FontWeight.bold)),
+                              const Spacer(),
+                              Text(made ? 'طلب ناجح' : 'طلب غير محقق',
+                                style: TextStyle(color: made ? Colors.greenAccent : Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                            ]),
+                            const SizedBox(height: 5),
+                            Text('صاحب الطلب: ${_playerName(bidSeat)} • طلب ${bid['amount']} • الحكم $suitLabel ${_symbols[suit] ?? ''}',
+                              style: const TextStyle(color: Colors.white, fontSize: 11)),
+                            const SizedBox(height: 5),
+                            Text('الأكلات — فريقك: ${tricks[_myTeam]} | الخصم: ${tricks[1 - _myTeam]}',
+                              style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                            const SizedBox(height: 3),
+                            Text('النقاط: ${before[_myTeam]} → ${after[_myTeam]} لفريقك • ${before[1 - _myTeam]} → ${after[1 - _myTeam]} للخصم',
+                              style: const TextStyle(color: Colors.white54, fontSize: 10)),
+                            Text(usTeam ? 'فريقك صاحب الطلب' : 'الفريق الآخر صاحب الطلب',
+                              style: const TextStyle(color: Colors.white38, fontSize: 9)),
+                          ]),
+                        );
+                      },
+                    ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
   String _trackerRankLabel(int rank) {
     switch (rank) {
       case 14: return 'A';
@@ -930,6 +1013,7 @@ class _TableScreenState extends State<TableScreen> {
                     decoration: BoxDecoration(color: _secondsLeft <= 5 ? Colors.red.withOpacity(.2) : kGold.withOpacity(.15), borderRadius: BorderRadius.circular(20)),
                     child: Text('$_secondsLeft ث', style: TextStyle(color: _secondsLeft <= 5 ? Colors.redAccent : kGold, fontWeight: FontWeight.bold)),
                   ),
+                IconButton(onPressed: _openScoreHistory, tooltip: 'سجل الجولات', icon: const Icon(Icons.history_rounded, color: Colors.white70)),
                 IconButton(onPressed: _openCardTracker, tooltip: 'حافظ الورق', icon: const Icon(Icons.style_outlined, color: kGold)),
                 IconButton(onPressed: _openReportDialog, tooltip: 'إبلاغ', icon: const Icon(Icons.flag_outlined, color: Colors.white70)),
                 IconButton(onPressed: _openSettings, icon: const Icon(Icons.more_horiz, color: Colors.white70)),
