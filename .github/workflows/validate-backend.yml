@@ -22,4 +22,9 @@ jobs:
         with:
           node-version: "20"
       - name: Check backend JavaScript syntax
-        run: node --check backend/server.js
+        run: |
+          node --check backend/server.js
+          node --check backend/game_rules.js
+          node --check backend/game_rules.test.js
+      - name: Run Tarneeb rules tests
+        run: npm test --prefix backend
