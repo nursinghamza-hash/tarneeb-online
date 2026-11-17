@@ -51,31 +51,35 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           path = Path("android/app/src/main/AndroidManifest.xml")
           manifest = path.read_text()
 
-          # Add required online permissions inside the manifest root.
+          # Add network permissions inside the manifest root.
+          root_start = manifest.find("<manifest")
+          root_end = manifest.find(">", root_start) + 1
+          if root_start < 0 or root_end <= 0:
+              raise SystemExit("Invalid AndroidManifest.xml: manifest tag not found")
           for permission in ("android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE"):
               if permission not in manifest:
-                  root = re.search(r"<manifest\\b[^>]*>", manifest)
-                  if not root:
-                      raise SystemExit("Invalid AndroidManifest.xml: manifest tag not found")
-                  insert_at = root.end()
-                  line = '\\n    <uses-permission android:name="' + permission + '"/>'
-                  manifest = manifest[:insert_at] + line + manifest[insert_at:]
+                  line = '\n    <uses-permission android:name="' + permission + '"/>'
+                  manifest = manifest[:root_end] + line + manifest[root_end:]
+                  root_end += len(line)
 
           # Set the launcher name shown below the app icon.
-          app = re.search(r"<application\\b[^>]*>", manifest)
-          if not app:
+          app_start = manifest.find("<application")
+          app_end = manifest.find(">", app_start) + 1
+          if app_start < 0 or app_end <= 0:
               raise SystemExit("Invalid AndroidManifest.xml: application tag not found")
-          app_tag = app.group(0)
-          if re.search(r'android:label="[^"]*"', app_tag):
-              app_tag = re.sub(r'android:label="[^"]*"', 'android:label="تحدي الطرنيب"', app_tag, count=1)
+          app_tag = manifest[app_start:app_end]
+          label_start = app_tag.find('android:label="')
+          if label_start >= 0:
+              value_start = label_start + len('android:label="')
+              value_end = app_tag.find('"', value_start)
+              app_tag = app_tag[:value_start] + "تحدي الطرنيب" + app_tag[value_end:]
           else:
               app_tag = app_tag[:-1] + ' android:label="تحدي الطرنيب">'
-          manifest = manifest[:app.start()] + app_tag + manifest[app.end():]
+          manifest = manifest[:app_start] + app_tag + manifest[app_end:]
 
           path.write_text(manifest)
           print(manifest)
