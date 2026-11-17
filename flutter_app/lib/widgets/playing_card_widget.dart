@@ -5,6 +5,7 @@ class PlayingCardWidget extends StatelessWidget {
   final PlayingCardModel card;
   final bool isMini;
   final bool isCompact;
+  final bool isHand;
   final bool isPlayable;
   final bool isLegal;
   final VoidCallback? onTap;
@@ -14,6 +15,7 @@ class PlayingCardWidget extends StatelessWidget {
     required this.card,
     this.isMini = false,
     this.isCompact = false,
+    this.isHand = false,
     this.isPlayable = true,
     this.isLegal = true,
     this.onTap,
@@ -24,10 +26,10 @@ class PlayingCardWidget extends StatelessWidget {
     final Color suitColor = card.suit.isRed
         ? const Color(0xFFD32F2F)
         : const Color(0xFF171717);
-    final double width = isMini ? 29 : (isCompact ? 42 : 60);
-    final double height = isMini ? 41 : (isCompact ? 64 : 88);
-    final double cornerFont = isMini ? 9 : (isCompact ? 10 : 13);
-    final double centerFont = isMini ? 13 : (isCompact ? 17 : 22);
+    final double width = isMini ? 29 : (isCompact ? 42 : (isHand ? 64 : 60));
+    final double height = isMini ? 41 : (isCompact ? 64 : (isHand ? 100 : 88));
+    final double cornerFont = isMini ? 9 : (isCompact ? 10 : (isHand ? 15 : 13));
+    final double centerFont = isMini ? 13 : (isCompact ? 17 : (isHand ? 25 : 22));
 
     return GestureDetector(
       onTap: isPlayable && isLegal ? onTap : null,
@@ -40,7 +42,7 @@ class PlayingCardWidget extends StatelessWidget {
           margin: EdgeInsets.symmetric(horizontal: isMini ? 1 : 0),
           decoration: BoxDecoration(
             color: const Color(0xFFFFFEFA),
-            borderRadius: BorderRadius.circular(isMini ? 4 : 6),
+            borderRadius: BorderRadius.circular(isMini ? 4 : (isHand ? 8 : 6)),
             border: Border.all(color: Colors.black26, width: .7),
             boxShadow: const [
               BoxShadow(color: Colors.black38, blurRadius: 3, offset: Offset(0, 2)),
