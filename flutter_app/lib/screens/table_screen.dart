@@ -120,8 +120,16 @@ class _TableScreenState extends State<TableScreen> {
 
   void _onGameState(dynamic data) {
     if (!mounted) return;
+    final incoming = Map<String, dynamic>.from(data as Map);
+    final oldTrick = (_state['currentTrick'] as List?) ?? const [];
+    final newTrick = (incoming['currentTrick'] as List?) ?? const [];
+    final hasNewPlayedCard = newTrick.length > oldTrick.length;
+    final lastPlayed = newTrick.isNotEmpty ? newTrick.last : null;
+    final playedByOther = hasNewPlayedCard && lastPlayed is Map &&
+        (lastPlayed['seat'] as num?)?.toInt() != _mySeat;
+    if (playedByOther && _soundEnabled) SystemSound.play(SystemSoundType.click);
     setState(() {
-      _state = Map<String, dynamic>.from(data as Map);
+      _state = incoming;
       _players = (_state['players'] as List?) ?? _players;
       _secondsLeft = 15;
     });
