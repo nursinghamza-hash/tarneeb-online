@@ -121,6 +121,15 @@ test('custom house rule can score declared Kaboot as 16', () => {
   });
 });
 
+test('custom house preset scores declared Kaboot 16 and unannounced sweep 14', () => {
+  assert.deepEqual(scoreRound([0, 0], [13, 0], 0, 13, {
+    declaredKabootPoints: 16, sweepPoints: 14,
+  }), { scores: [16, 0], bidMet: true });
+  assert.deepEqual(scoreRound([0, 0], [13, 0], 0, 7, {
+    declaredKabootPoints: 16, sweepPoints: 14,
+  }), { scores: [14, 0], bidMet: true });
+});
+
 test('an unannounced 13-trick sweep scores 16 points', () => {
   assert.deepEqual(scoreRound([0, 0], [13, 0], 0, 7), { scores: [16, 0], bidMet: true });
   assert.deepEqual(scoreRound([0, 0], [0, 13], 0, 7), { scores: [-7, 16], bidMet: false });
