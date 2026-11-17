@@ -128,6 +128,7 @@ class _TableScreenState extends State<TableScreen> {
       _state['status'] = map['status'];
       _state['partnerSeat'] = map['partnerSeat'];
       _state['dealMode'] = map['dealMode'];
+      _state['aiPractice'] = map['aiPractice'] == true;
     });
   }
 
@@ -890,7 +891,10 @@ class _TableScreenState extends State<TableScreen> {
         child: Column(children: [
           Text('رقم الطاولة: ${widget.roomCode}', style: const TextStyle(color: kGold, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 5),
-          Text('شارك الرقم مع أصدقائك • اللاعبون: $count / 4', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(_state['aiPractice'] == true
+            ? 'وضع التدريب • أنت وثلاثة لاعبين بالذكاء الاصطناعي'
+            : 'شارك الرقم مع أصدقائك • اللاعبون: $count / 4',
+            style: const TextStyle(color: Colors.white70, fontSize: 12)),
           const SizedBox(height: 10),
           if (_isHost) ...[
             const Text('توزيع الفرق', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
