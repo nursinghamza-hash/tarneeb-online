@@ -22,9 +22,9 @@ test('AI bidding evaluates a valid 13-card hand and chooses a strongest suit', (
 
 test('AI partner does not overbid the current contract without extra strength', () => {
   const hand = [
-    ...makeHand('SPADES', [14, 13, 12, 11, 10, 9]),
-    ...makeHand('HEARTS', [14, 8, 4]),
-    ...makeHand('DIAMONDS', [13, 7]),
+    ...makeHand('SPADES', [2, 3, 4, 5, 6]),
+    ...makeHand('HEARTS', [2, 3, 4, 5]),
+    ...makeHand('DIAMONDS', [2, 3]),
     ...makeHand('CLUBS', [2, 3]),
   ];
   const decision = chooseBid({
@@ -64,8 +64,8 @@ test('AI uses the lowest card when its partner is already winning', () => {
     { code: '2-CLUBS', suit: 'CLUBS', rank: 2 },
   ];
   const trick = [
-    { seat: 1, card: { code: 'K-HEARTS', suit: 'HEARTS', rank: 13 } },
-    { seat: 2, card: { code: 'A-HEARTS', suit: 'HEARTS', rank: 14 } },
+    { seat: 1, card: { code: '10-HEARTS', suit: 'HEARTS', rank: 10 } },
+    { seat: 2, card: { code: 'K-HEARTS', suit: 'HEARTS', rank: 13 } },
   ];
   const card = chooseCard({ hand, trick, trumpSuit: 'SPADES', seat: 0, partnerSeat: 2, bidderSeat: 0 });
   assert.equal(card.code, '3-HEARTS');
@@ -77,7 +77,7 @@ test('AI can choose a winning trump when unable to follow suit', () => {
     { code: '3-CLUBS', suit: 'CLUBS', rank: 3 },
   ];
   const trick = [
-    { seat: 1, card: { code: 'A-HEARTS', suit: 'HEARTS', rank: 14 } },
+    { seat: 0, card: { code: 'A-HEARTS', suit: 'HEARTS', rank: 14 } },
     { seat: 2, card: { code: '2-HEARTS', suit: 'HEARTS', rank: 2 } },
   ];
   const card = chooseCard({ hand, trick, trumpSuit: 'SPADES', seat: 3, partnerSeat: 1, bidderSeat: 0 });
