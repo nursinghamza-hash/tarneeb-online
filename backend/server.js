@@ -304,11 +304,7 @@ function joinRoom(socket, payload) {
   sendRoom(room);
   if (room.status === 'playing' || room.status === 'finished') socket.emit('game_state', stateFor(room, seat));
 }
-function startGame(room, player) {
-  if (!player || player.token !== room.hostToken) return;
-  if (room.players.some(p => !p)) return io.to(player.id).emit('room_error', 'تحتاج الطاولة إلى 4 لاعبين لبدء اللعب');
-  room.scores = [0, 0];
-  room.roundNumber = 1;
+function beginCutPhase(room) {
   room.preparedDeck = makeDeck();
   room.cutSeat = (room.dealerSeat + 3) % 4;
   room.phase = 'cutting';
@@ -317,6 +313,13 @@ function startGame(room, player) {
   room.deadline = null;
   broadcastState(room);
   sendRoom(room);
+}
+function startGame(room, player) {
+  if (!player || player.token !== room.hostToken) return;
+  if (room.players.some(p => !p)) return io.to(player.id).emit('room_error', 'تحتاج الطاولة إلى 4 لاعبين لبدء اللعب');
+  room.scores = [0, 0];
+  room.roundNumber = 1;
+  beginCutPhase(room);
 }
 io.on('connection', socket => {
   console.log(`[socket] connected: ${socket.id} transport=${socket.conn.transport.name}`);
@@ -367,7 +370,7 @@ io.on('connection', socket => {
     if (!room || !player || player.token !== room.hostToken || room.phase !== 'round_result' || room.status !== 'playing') return;
     room.dealerSeat = (room.dealerSeat + 1) % 4;
     room.roundNumber += 1;
-    startRound(room);
+    beginCutPhase(room);
   });
   socket.on('play_again', () => {
     const room = [...rooms.values()].find(r => playerFor(r, socket));
@@ -380,7 +383,7 @@ io.on('connection', socket => {
       room.scores = [0, 0];
       room.dealerSeat = (room.dealerSeat + 1) % 4;
       room.roundNumber = 1;
-      startRound(room);
+      beginCutPhase(room);
     }
   });
   socket.on('leave_room', () => {
