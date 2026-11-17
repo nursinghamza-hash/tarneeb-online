@@ -437,7 +437,7 @@ io.on('connection', socket => {
     const room = [...rooms.values()].find(r => playerFor(r, socket));
     const player = room && playerFor(room, socket);
     if (!room || !player || player.token !== room.hostToken || room.phase !== 'round_result' || room.status !== 'playing') return;
-    room.dealerSeat = (room.dealerSeat + 1) % 4;
+    room.dealerSeat = (room.dealerSeat + 3) % 4;
     room.roundNumber += 1;
     beginNextDeal(room);
   });
@@ -450,7 +450,7 @@ io.on('connection', socket => {
     if (room.rematchVotes.size === 4) {
       room.rematchVotes.clear();
       room.scores = [0, 0];
-      room.dealerSeat = (room.dealerSeat + 1) % 4;
+      room.dealerSeat = (room.dealerSeat + 3) % 4;
       room.roundNumber = 1;
       beginNextDeal(room);
     }
