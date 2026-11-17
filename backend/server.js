@@ -13,6 +13,7 @@ const {
   scoreRound,
   canBid,
 } = require('./game_rules');
+const { chooseBid, chooseCard } = require('./bot_ai');
 
 const app = express();
 app.use(cors());
@@ -84,13 +85,14 @@ function clearTrickTimer(room) {
 function publicPlayers(room) {
   return room.players.map((p, seat) => p ? ({
     seat, name: p.name, connected: !!p.connected, ready: !!p.ready,
-    isHost: p.token === room.hostToken,
+    isHost: p.token === room.hostToken, isBot: p.isBot === true,
   }) : null);
 }
 function sendRoom(room) {
   io.to(room.code).emit('room_update', {
     roomCode: room.code, targetScore: room.targetScore,
     scoringPreset: room.scoringPreset || 'jawaker',
+    aiPractice: room.aiPractice === true,
     status: room.status, players: publicPlayers(room),
     partnerSeat: room.partnerSeat, dealMode: room.dealMode,
   });
@@ -103,6 +105,7 @@ function stateFor(room, seat) {
     status: room.status,
     phase: room.phase,
     scoringPreset: room.scoringPreset || 'jawaker',
+    aiPractice: room.aiPractice === true,
     players: publicPlayers(room),
     mySeat: seat,
     myHand: room.hands ? sorted(room.hands[seat]) : [],
@@ -136,16 +139,45 @@ function broadcastState(room) {
 }
 function startTurnTimer(room) {
   clearTurnTimer(room);
-  room.deadline = Date.now() + TURN_SECONDS * 1000;
+  const seat = room.turnSeat;
+  const isBotTurn = room.players[seat]?.isBot === true;
+  const delayMs = isBotTurn ? 650 : TURN_SECONDS * 1000;
+  room.deadline = Date.now() + delayMs;
   room.turnTimer = setTimeout(() => {
-    if (!rooms.has(room.code) || room.status !== 'playing') return;
-    if (room.phase === 'bidding') {
-      applyBid(room, room.turnSeat, { pass: true, automatic: true });
-    } else if (room.phase === 'playing') {
-      const legal = legalCards(room, room.turnSeat);
-      if (legal.length) playCard(room, room.turnSeat, legal[legal.length - 1].code, true);
+    if (!rooms.has(room.code) || room.status !== 'playing' || room.turnSeat !== seat) return;
+    if (isBotTurn) {
+      if (room.phase === 'bidding') {
+        const decision = chooseBid({
+          hand: room.hands[seat],
+          seat,
+          dealerSeat: room.dealerSeat,
+          currentBid: room.bid,
+          currentBidderSeat: room.bid?.seat ?? null,
+          passedSeats: room.passed,
+        });
+        applyBid(room, seat, decision);
+      } else if (room.phase === 'playing') {
+        const selected = chooseCard({
+          hand: room.hands[seat],
+          trick: room.currentTrick,
+          trumpSuit: room.bid.suit,
+          seat,
+          partnerSeat: (seat + 2) % 4,
+          bidderSeat: room.bid.seat,
+          allHands: room.hands,
+        });
+        if (selected) playCard(room, seat, selected.code, true);
+      }
+      return;
     }
-  }, TURN_SECONDS * 1000);
+
+    if (room.phase === 'bidding') {
+      applyBid(room, seat, { pass: true, automatic: true });
+    } else if (room.phase === 'playing') {
+      const legal = legalCards(room, seat);
+      if (legal.length) playCard(room, seat, legal[legal.length - 1].code, true);
+    }
+  }, delayMs);
 }
 function startRound(room, preparedDeck = null, dealPattern = 'one') {
   clearTurnTimer(room);
@@ -345,7 +377,7 @@ function createRoom(socket, payload) {
     code, targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
     scoringPreset: payload.scoringPreset === 'house_16_14' ? 'house_16_14' : 'jawaker',
     hostToken: token, players: Array(4).fill(null), scores: [0, 0], roundHistory: [],
-    partnerSeat: 2, dealMode: 'random', reports: [],
+    partnerSeat: 2, dealMode: 'random', aiPractice: payload.aiPractice === true, reports: [],
     tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
     dealPattern: 'one', lastTrick: [], trickTimer: null, debugEnabledSeats: new Set(),
     status: 'waiting', turnSeat: 0, bidTurn: null, bid: null, passed: [],
@@ -353,6 +385,20 @@ function createRoom(socket, payload) {
     lastRound: null, rematchVotes: new Set(), turnTimer: null,
   };
   room.players[0] = { id: socket.id, token, name: cleanName(payload.playerName), seat: 0, connected: true, ready: true };
+  if (room.aiPractice) {
+    const botNames = { 1: 'الزعيم', 2: 'أبو شهاب', 3: 'العقيد' };
+    for (const seat of [1, 2, 3]) {
+      room.players[seat] = {
+        id: null,
+        token: crypto.randomBytes(18).toString('hex'),
+        name: botNames[seat],
+        seat,
+        connected: true,
+        ready: true,
+        isBot: true,
+      };
+    }
+  }
   rooms.set(code, room);
   socket.join(code);
   socket.emit('room_created', { roomCode: code, token, seat: 0 });
