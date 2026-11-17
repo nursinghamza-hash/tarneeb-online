@@ -23,7 +23,7 @@ const suitMeta = {
   DIAMONDS: { symbol: '♦', name: 'ديناري' },
   CLUBS: { symbol: '♣', name: 'سنك' },
 };
-const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥'];
+const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
 
 function roomCode() {
   let code;
