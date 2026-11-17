@@ -119,6 +119,12 @@ function mustDealerOpenBid(dealerSeat, actingSeat, passedSeats, currentBid) {
     [0, 1, 2, 3].filter(seat => seat !== dealerSeat).every(seat => uniquePassed.has(seat));
 }
 
+function canBid(seat, passedSeats) {
+  assertSeat(seat);
+  if (!Array.isArray(passedSeats)) throw new TypeError('passedSeats must be an array');
+  return !passedSeats.includes(seat);
+}
+
 function scoreRound(scores, tricks, bidTeam, bidAmount, options = {}) {
   if (!Array.isArray(scores) || scores.length !== 2 || !scores.every(Number.isFinite)) {
     throw new TypeError('scores must contain two finite numbers');
@@ -180,5 +186,6 @@ module.exports = {
   cardBeats,
   trickWinner,
   mustDealerOpenBid,
+  canBid,
   scoreRound,
 };
