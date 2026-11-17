@@ -23,7 +23,7 @@ class TableScreen extends StatefulWidget {
 }
 
 class _TableScreenState extends State<TableScreen> {
-  static const List<String> _emojis = ['😂', '😎', '😡', '👏', '🤔', '🔥'];
+  static const List<String> _emojis = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
   static const List<String> _suits = ['SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS'];
   static const Map<String, String> _symbols = {
     'SPADES': '♠', 'HEARTS': '♥', 'DIAMONDS': '♦', 'CLUBS': '♣',
@@ -139,7 +139,7 @@ class _TableScreenState extends State<TableScreen> {
     final map = Map<String, dynamic>.from(data as Map);
     final seat = (map['seat'] as num).toInt();
     setState(() => _reactions[seat] = map['emoji'].toString());
-    Future.delayed(const Duration(milliseconds: 1800), () {
+    Future.delayed(const Duration(seconds: 3), () {
       if (mounted && _reactions[seat] == map['emoji']) setState(() => _reactions.remove(seat));
     });
   }
@@ -190,7 +190,8 @@ class _TableScreenState extends State<TableScreen> {
 
   void _playCard(dynamic card) {
     if (!_myTurn || _phase != 'playing' || !_isLegalCard(card)) return;
-    _feedback();
+    if (_soundEnabled) SystemSound.play(SystemSoundType.click);
+    if (_vibrationEnabled) HapticFeedback.mediumImpact();
     widget.socket.emit('play_card', {
       'roomCode': widget.roomCode, 'cardCode': card['code'].toString(),
     });
