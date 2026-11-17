@@ -22,7 +22,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _busy = false;
   String _serverUrl = const String.fromEnvironment(
     'SERVER_URL',
-    defaultValue: 'https://YOUR-TARNEEB-SERVER.onrender.com',
+    defaultValue: 'https://tarneeb-online-server.onrender.com',
   );
 
   @override
@@ -31,7 +31,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _name.text = prefs.getString('player_name') ?? '';
-    _serverUrl = prefs.getString('server_url') ?? _serverUrl;
+    final savedServerUrl = prefs.getString('server_url')?.trim();
+    if (savedServerUrl != null && savedServerUrl.isNotEmpty &&
+        !savedServerUrl.contains('YOUR-TARNEEB-SERVER')) {
+      _serverUrl = savedServerUrl;
+    }
     if (mounted) setState(() {});
   }
 
@@ -98,7 +102,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   IO.Socket _newSocket() => IO.io(
     _serverUrl.trim(),
-    IO.OptionBuilder().setTransports(['polling']).disableAutoConnect()
+    // Flutter native clients must use WebSocket; polling is not supported here.
+    IO.OptionBuilder().setTransports(['websocket']).disableAutoConnect()
       .enableReconnection().setReconnectionAttempts(999)
       .setReconnectionDelay(1000).build(),
   );
