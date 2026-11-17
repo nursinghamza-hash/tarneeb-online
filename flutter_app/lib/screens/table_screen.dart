@@ -41,6 +41,8 @@ class _TableScreenState extends State<TableScreen> {
   int _secondsLeft = 15;
   int _customCutAt = 18;
   String? _selectedCardCode;
+  String? _firstTappedCardCode;
+  Timer? _cardTapTimer;
   bool _disconnected = false;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
@@ -105,6 +107,7 @@ class _TableScreenState extends State<TableScreen> {
   @override
   void dispose() {
     _clock?.cancel();
+    _cardTapTimer?.cancel();
     final s = widget.socket;
     s.off('room_update');
     s.off('game_state');
@@ -143,7 +146,11 @@ class _TableScreenState extends State<TableScreen> {
       _state = incoming;
       _players = (_state['players'] as List?) ?? _players;
       final handCodes = _hand.map((card) => (card as Map)['code'].toString()).toSet();
-      if (_selectedCardCode != null && !handCodes.contains(_selectedCardCode)) _selectedCardCode = null;
+      if (_selectedCardCode != null && !handCodes.contains(_selectedCardCode)) {
+        _selectedCardCode = null;
+        _firstTappedCardCode = null;
+        _cardTapTimer?.cancel();
+      }
       _secondsLeft = 15;
     });
   }
@@ -304,8 +311,27 @@ class _TableScreenState extends State<TableScreen> {
     return card['suit'].toString().toUpperCase() == ledSuit;
   }
 
+  void _onHandCardTap(dynamic raw) {
+    if (!_myTurn || _phase != 'playing' || !_isLegalCard(raw)) return;
+    final code = (raw as Map)['code'].toString();
+    if (_firstTappedCardCode == code && _cardTapTimer?.isActive == true) {
+      _cardTapTimer?.cancel();
+      _firstTappedCardCode = null;
+      _playCard(raw);
+      return;
+    }
+    _cardTapTimer?.cancel();
+    _firstTappedCardCode = code;
+    setState(() => _selectedCardCode = code);
+    _cardTapTimer = Timer(const Duration(milliseconds: 550), () {
+      if (_firstTappedCardCode == code) _firstTappedCardCode = null;
+    });
+  }
+
   void _playCard(dynamic card) {
     if (!_myTurn || _phase != 'playing' || !_isLegalCard(card)) return;
+    _cardTapTimer?.cancel();
+    _firstTappedCardCode = null;
     if (_soundEnabled) SystemSound.play(SystemSoundType.click);
     if (_vibrationEnabled) HapticFeedback.mediumImpact();
     setState(() => _selectedCardCode = null);
@@ -619,15 +645,12 @@ class _TableScreenState extends State<TableScreen> {
                   isSelected: selected,
                   isLegal: legal,
                   isPlayable: canPlay,
-                  onTap: canPlay ? () => setState(() => _selectedCardCode = selected ? null : code) : null,
-                  onDoubleTap: canPlay ? () => _playCard(raw) : null,
+                  onTap: canPlay ? () => _onHandCardTap(raw) : null,
                 );
                 return Positioned(
                   right: index * step,
-                  top: selected ? 0 : 9,
-                  child: Transform.translate(
-                    offset: Offset(0, selected ? -9 : 0),
-                    child: Draggable<dynamic>(
+                  top: 5,
+                  child: Draggable<dynamic>(
                       data: raw,
                       maxSimultaneousDrags: canPlay ? 1 : 0,
                       feedback: Material(
