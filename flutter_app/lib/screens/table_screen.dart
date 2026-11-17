@@ -37,7 +37,6 @@ class _TableScreenState extends State<TableScreen> {
   List<int> _rematchVotes = [];
   final Map<int, String> _reactions = {};
   String _selectedSuit = 'SPADES';
-  int _selectedBid = 7;
   int _secondsLeft = 15;
   int _customCutAt = 18;
   String? _selectedCardCode;
