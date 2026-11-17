@@ -52,7 +52,7 @@ jobs:
 
       - name: Build release APK
         working-directory: flutter_app
-        run: flutter build apk --release
+        run: flutter build apk --release --dart-define=SERVER_URL=https://tarneeb-online-server.onrender.com
 
       - name: Upload release APK
         uses: actions/upload-artifact@v4
