@@ -35,7 +35,7 @@ class PlayingCardWidget extends StatelessWidget {
       onTap: isPlayable && isLegal ? onTap : null,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 160),
-        opacity: !isLegal ? .28 : (isPlayable ? 1 : .62),
+        opacity: !isLegal ? .3 : 1,
         child: Container(
           width: width,
           height: height,
