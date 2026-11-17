@@ -570,6 +570,11 @@ class _TableScreenState extends State<TableScreen> {
   );
 
   Widget _centerTable() {
+    final southSeat = _mySeat;
+    final eastSeat = (southSeat + 1) % 4;
+    final northSeat = (southSeat + 2) % 4;
+    final westSeat = (southSeat + 3) % 4;
+
     Widget trickCardForSeat(int seat) {
       final raw = _trick.cast<dynamic>().firstWhere(
         (item) => (item as Map)['seat'] == seat,
@@ -597,9 +602,9 @@ class _TableScreenState extends State<TableScreen> {
         Positioned.fill(child: Center(
           child: Opacity(opacity: .08, child: Icon(Icons.style, size: 110, color: kGold)),
         )),
-        Positioned(top: 8, left: 0, right: 0, child: Center(child: _playerBadge(2, '👑'))),
-        Positioned(right: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 1, child: _playerBadge(1, '🂠')))),
-        Positioned(left: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 3, child: _playerBadge(3, '🂠')))),
+        Positioned(top: 8, left: 0, right: 0, child: Center(child: _playerBadge(northSeat, '👑'))),
+        Positioned(right: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 1, child: _playerBadge(eastSeat, '🂠')))),
+        Positioned(left: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 3, child: _playerBadge(westSeat, '🂠')))),
         Center(
           child: DragTarget<Map<String, dynamic>>(
             onWillAcceptWithDetails: (details) => _myTurn && _phase == 'playing' && _isLegalCard(details.data),
@@ -620,13 +625,13 @@ class _TableScreenState extends State<TableScreen> {
                 ),
                 child: Stack(children: [
                   Positioned(top: 2, left: 0, right: 0, height: 68,
-                    child: Center(child: trickCardForSeat(2))),
+                    child: Center(child: trickCardForSeat(northSeat))),
                   Positioned(bottom: 2, left: 0, right: 0, height: 68,
-                    child: Center(child: trickCardForSeat(0))),
+                    child: Center(child: trickCardForSeat(southSeat))),
                   Positioned(left: 2, top: 0, bottom: 0, width: 52,
-                    child: Center(child: trickCardForSeat(3))),
+                    child: Center(child: trickCardForSeat(westSeat))),
                   Positioned(right: 2, top: 0, bottom: 0, width: 52,
-                    child: Center(child: trickCardForSeat(1))),
+                    child: Center(child: trickCardForSeat(eastSeat))),
                   if (_trick.isEmpty && _myTurn && _phase == 'playing')
                     const Center(
                       child: Text('اسحب الورقة إلى منتصف الطاولة',
