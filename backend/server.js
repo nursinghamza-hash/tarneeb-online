@@ -127,11 +127,11 @@ function startRound(room, preparedDeck = null) {
   clearTurnTimer(room);
   const deck = preparedDeck || makeDeck();
   room.cutSeat = null;
-  // Deal one card at a time, starting to the dealer's right (seat - 1 in the table layout).
-  // This preserves the real-table dealing order instead of dealing four blocks.
+  // Deal one card at a time, starting to the dealer's right and moving counterclockwise.
+  // Seat order follows the table: 0 bottom, 1 left, 2 top, 3 right.
   room.hands = [[], [], [], []];
   for (let i = 0; i < deck.length; i++) {
-    const seat = (room.dealerSeat + 3 + i) % 4;
+    const seat = (room.dealerSeat + 3 * (i + 1)) % 4;
     room.hands[seat].push(deck[i]);
   }
   room.hands = room.hands.map(sorted);
