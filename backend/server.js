@@ -290,7 +290,7 @@ function createRoom(socket, payload) {
   const code = roomCode();
   const token = crypto.randomBytes(18).toString('hex');
   const room = {
-    code, targetScore: Number(payload.targetScore) === 61 ? 61 : 41,
+    code, targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
     hostToken: token, players: Array(4).fill(null), scores: [0, 0],
     partnerSeat: null, dealMode: 'random', reports: [],
     tricks: [0, 0], hands: null, currentTrick: [], phase: 'waiting',
