@@ -1148,7 +1148,6 @@ class _TableScreenState extends State<TableScreen> {
     return LayoutBuilder(builder: (context, constraints) {
       final rows = _debugHands;
       return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         width: double.infinity,
         height: double.infinity,
         margin: const EdgeInsets.all(5),
