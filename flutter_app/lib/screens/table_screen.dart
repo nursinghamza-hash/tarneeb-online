@@ -321,6 +321,11 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _startGame() => widget.socket.emit('start_game');
+  void _selectPartner(int seat) {
+    if (!_isHost || _status != 'waiting' || seat < 1 || seat > 3 || seat >= _players.length || _players[seat] == null) return;
+    _feedback();
+    widget.socket.emit('select_partner', {'roomCode': widget.roomCode, 'partnerSeat': seat});
+  }
   void _selectDealMode(String mode) => widget.socket.emit('select_deal_mode', {'roomCode': widget.roomCode, 'mode': mode});
   void _cutDeck(int cutAt) {
     if (_phase != 'cutting' || (_state['cutSeat'] as num?)?.toInt() != _mySeat) return;
@@ -1037,39 +1042,120 @@ class _TableScreenState extends State<TableScreen> {
   Widget _waitingOrResult() {
     if (_status == 'waiting') {
       final count = _players.where((p) => p != null).length;
-      return Container(
-        margin: const EdgeInsets.all(12), padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: kPanel, borderRadius: BorderRadius.circular(14)),
-        child: Column(children: [
-          Text('رقم الطاولة: ${widget.roomCode}', style: const TextStyle(color: kGold, fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 5),
-          Text(_state['aiPractice'] == true
-            ? 'وضع التدريب • أنت وثلاثة لاعبين بالذكاء الاصطناعي'
-            : 'شارك الرقم مع أصدقائك • اللاعبون: $count / 4',
-            style: const TextStyle(color: Colors.white70, fontSize: 12)),
-          const SizedBox(height: 10),
-          if (_isHost) ...[
-            const Text('توزيع الفرق', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 5),
-            Text('فريقك: أنت + ${_playerName(2)} (المقعد المقابل)', style: const TextStyle(color: Colors.white70, fontSize: 11)),
-            Text('الخصوم: ${_playerName(1)} + ${_playerName(3)}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
-            const SizedBox(height: 9),
-            const Text('طريقة التوزيع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 5),
-            Wrap(spacing: 7, children: [
-              ChoiceChip(label: const Text('عشوائي نزيه'), selected: _dealMode == 'random', selectedColor: kGold, onSelected: (_) => _selectDealMode('random')),
-              ChoiceChip(label: const Text('قصّ الشدّة'), selected: _dealMode == 'cut', selectedColor: kGold, onSelected: (_) => _selectDealMode('cut')),
-              ChoiceChip(label: const Text('دفعات 4-3-3-3'), selected: _dealMode == 'batch_4333', selectedColor: kGold, onSelected: (_) => _selectDealMode('batch_4333')),
-            ]),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: count == 4 ? _startGame : null,
-              style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
-              child: const Text('ابدأ اللعب'),
+      final chosenPartner = _partnerSeat;
+      Widget partnerOption(int seat) {
+        final selected = chosenPartner == seat;
+        final available = seat < _players.length && _players[seat] != null;
+        return Expanded(
+          child: InkWell(
+            onTap: _isHost && count == 4 && available ? () => _selectPartner(seat) : null,
+            borderRadius: BorderRadius.circular(14),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              padding: const EdgeInsets.fromLTRB(3, 7, 3, 6),
+              decoration: BoxDecoration(
+                color: selected ? const Color(0x3329C85B) : Colors.white.withOpacity(.035),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: selected ? const Color(0xFF48D879) : Colors.white.withOpacity(.12),
+                  width: selected ? 2 : 1,
+                ),
+              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 51, height: 51,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: selected ? const Color(0xFF0E7D3A) : const Color(0xFF242424),
+                    border: Border.all(color: selected ? const Color(0xFF7DE99E) : Colors.white24, width: selected ? 2 : 1),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(available ? _playerAvatar(seat) : '…', style: const TextStyle(fontSize: 27)),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  available ? _playerName(seat) : 'مقعد فارغ',
+                  maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
+                  style: TextStyle(color: selected ? const Color(0xFF8FF0AE) : Colors.white70, fontSize: 10, fontWeight: selected ? FontWeight.bold : FontWeight.normal),
+                ),
+                if (selected)
+                  const Padding(padding: EdgeInsets.only(top: 2), child: Icon(Icons.check_circle, color: Color(0xFF6FE18C), size: 15)),
+              ]),
             ),
-          ] else
-            Text('شريك صاحب الطاولة (المقعد المقابل): ${_playerName(2)}',
-              textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          ),
+        );
+      }
+
+      return Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(13, 15, 13, 13),
+        decoration: BoxDecoration(
+          color: const Color(0xF2080909),
+          borderRadius: BorderRadius.circular(23),
+          border: Border.all(color: Colors.white.withOpacity(.16)),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(.65), blurRadius: 22, offset: const Offset(0, 10)),
+          ],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text(
+            'الرجاء اختيار شريكك',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            'طاولة ${widget.roomCode} • اللاعبون $count / 4',
+            style: const TextStyle(color: Colors.white54, fontSize: 10),
+          ),
+          const SizedBox(height: 11),
+          Container(height: 1, color: Colors.white.withOpacity(.12)),
+          const SizedBox(height: 11),
+          Row(children: [partnerOption(1), const SizedBox(width: 7), partnerOption(2), const SizedBox(width: 7), partnerOption(3)]),
+          const SizedBox(height: 9),
+          if (_isHost) ...[
+            Text(
+              count == 4
+                ? (chosenPartner == null ? 'اختر أحد اللاعبين الثلاثة ليكون شريكك' : 'شريكك: ${_playerName(chosenPartner)}')
+                : 'بانتظار اكتمال المقاعد قبل اختيار الشريك',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 10),
+            ),
+            const SizedBox(height: 9),
+            SizedBox(
+              width: double.infinity,
+              height: 42,
+              child: ElevatedButton(
+                onPressed: count == 4 && chosenPartner != null ? _startGame : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFC928),
+                  foregroundColor: const Color(0xFF1B1608),
+                  disabledBackgroundColor: Colors.white12,
+                  disabledForegroundColor: Colors.white38,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('ابدأ اللعب', style: TextStyle(fontWeight: FontWeight.w900)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text('الفريق الآخر: اللاعبان المتبقيان', style: TextStyle(color: Colors.white45, fontSize: 9)),
+            const SizedBox(height: 8),
+            Wrap(spacing: 6, children: [
+              ChoiceChip(label: const Text('عشوائي'), selected: _dealMode == 'random', selectedColor: const Color(0xFFFFC928), onSelected: (_) => _selectDealMode('random')),
+              ChoiceChip(label: const Text('قصّ الشدّة'), selected: _dealMode == 'cut', selectedColor: const Color(0xFFFFC928), onSelected: (_) => _selectDealMode('cut')),
+              ChoiceChip(label: const Text('دفعات 4-3-3-3'), selected: _dealMode == 'batch_4333', selectedColor: const Color(0xFFFFC928), onSelected: (_) => _selectDealMode('batch_4333')),
+            ]),
+          ] else ...[
+            Text(
+              chosenPartner == null
+                ? 'بانتظار صاحب الطاولة لاختيار شريكه'
+                : 'شريك صاحب الطاولة: ${_playerName(chosenPartner)}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 11),
+            ),
+            const SizedBox(height: 5),
+            const Text('سيبدأ اللعب عندما يضغط صاحب الطاولة على ابدأ اللعب', textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white38, fontSize: 9)),
+          ],
         ]),
       );
     }
