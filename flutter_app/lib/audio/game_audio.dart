@@ -126,7 +126,8 @@ class GameAudio {
         wave /= frequencies.length;
         final value = (wave * envelope * .26 * 32767)
             .round()
-            .clamp(-32768, 32767);
+            .clamp(-32768, 32767)
+            .toInt();
         header.setInt16(dataOffset, value, Endian.little);
         dataOffset += bytesPerSample;
       }
