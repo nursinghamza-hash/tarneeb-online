@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
+import '../audio/game_audio.dart';
 import '../models/game_models.dart';
 import '../widgets/playing_card_widget.dart';
 import 'home_screen.dart';
@@ -48,6 +50,7 @@ class _TableScreenState extends State<TableScreen> {
   bool _disconnected = false;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
+  final AudioPlayer _audioPlayer = AudioPlayer();
   bool _debugHandsVisible = false;
   List<dynamic> _debugHands = [];
   Timer? _clock;
@@ -114,6 +117,7 @@ class _TableScreenState extends State<TableScreen> {
   void dispose() {
     _clock?.cancel();
     _cardTapTimer?.cancel();
+    unawaited(_audioPlayer.dispose());
     final s = widget.socket;
     s.off('room_update');
     s.off('game_state');
@@ -154,11 +158,30 @@ class _TableScreenState extends State<TableScreen> {
     final lastPlayed = newTrick.isNotEmpty ? newTrick.last : null;
     final playedByOther = hasNewPlayedCard && lastPlayed is Map &&
         (lastPlayed['seat'] as num?)?.toInt() != _mySeat;
-    if (playedByOther && _soundEnabled) SystemSound.play(SystemSoundType.click);
+    final previousTricks = (_state['tricks'] as List?) ?? const [0, 0];
+    final incomingTricks = (incoming['tricks'] as List?) ?? previousTricks;
+    final trickWasWon = incomingTricks.length >= 2 && previousTricks.length >= 2 &&
+        List.generate(2, (i) => (incomingTricks[i] as num).toInt() > (previousTricks[i] as num).toInt()).any((v) => v);
     final previousPhase = _phase;
     final previousTurn = _turnSeat;
     final incomingPhase = (incoming['phase'] ?? 'waiting').toString();
     final incomingTurn = (incoming['turnSeat'] as num?)?.toInt() ?? -1;
+    final previousRoundNumber = (_state['roundNumber'] as num?)?.toInt();
+    final incomingRoundNumber = (incoming['roundNumber'] as num?)?.toInt();
+
+    if (incomingPhase == 'round_result' && previousPhase != 'round_result') {
+      final lastRound = incoming['lastRound'] as Map?;
+      _playSound(lastRound?['bidMet'] == true ? GameSound.success : GameSound.fail);
+    } else if (trickWasWon) {
+      _playSound(GameSound.trick);
+    } else if (playedByOther) {
+      _playSound(GameSound.card);
+    } else if (incomingPhase == 'trump_selection' && previousPhase != 'trump_selection') {
+      _playSound(GameSound.bid);
+    } else if ((previousRoundNumber == null && incomingPhase == 'bidding') ||
+        (incomingRoundNumber != null && previousRoundNumber != incomingRoundNumber)) {
+      _playSound(GameSound.deal);
+    }
     setState(() {
       if (incomingPhase == 'trump_selection' && previousPhase != 'trump_selection') {
         _selectedSuit = 'HEARTS';
@@ -285,17 +308,22 @@ class _TableScreenState extends State<TableScreen> {
   void _selectDealMode(String mode) => widget.socket.emit('select_deal_mode', {'roomCode': widget.roomCode, 'mode': mode});
   void _cutDeck(int cutAt) {
     if (_phase != 'cutting' || (_state['cutSeat'] as num?)?.toInt() != _mySeat) return;
-    _feedback();
+    _feedback(GameSound.deal);
     widget.socket.emit('cut_deck', {'roomCode': widget.roomCode, 'cutAt': cutAt});
   }
-  void _feedback() {
-    if (_soundEnabled) SystemSound.play(SystemSoundType.click);
+  void _playSound(GameSound sound) {
+    if (!_soundEnabled) return;
+    unawaited(GameAudio.play(_audioPlayer, sound));
+  }
+
+  void _feedback([GameSound sound = GameSound.tap]) {
+    _playSound(sound);
     if (_vibrationEnabled) HapticFeedback.selectionClick();
   }
 
   void _submitBid(int amount) {
     if (!_myTurn || _phase != 'bidding') return;
-    _feedback();
+    _feedback(GameSound.bid);
     widget.socket.emit('submit_bid', {
       'roomCode': widget.roomCode, 'amount': amount,
     });
@@ -303,7 +331,7 @@ class _TableScreenState extends State<TableScreen> {
 
   void _confirmTrumpSuit() {
     if (!_myTurn || _phase != 'trump_selection') return;
-    _feedback();
+    _feedback(GameSound.trump);
     widget.socket.emit('select_trump', {
       'roomCode': widget.roomCode, 'suit': _selectedSuit,
     });
@@ -350,7 +378,7 @@ class _TableScreenState extends State<TableScreen> {
     if (!_myTurn || _phase != 'playing' || !_isLegalCard(card)) return;
     _cardTapTimer?.cancel();
     _firstTappedCardCode = null;
-    if (_soundEnabled) SystemSound.play(SystemSoundType.click);
+    _playSound(GameSound.card);
     if (_vibrationEnabled) HapticFeedback.mediumImpact();
     setState(() => _selectedCardCode = null);
     widget.socket.emit('play_card', {
@@ -358,7 +386,7 @@ class _TableScreenState extends State<TableScreen> {
     });
   }
   void _sendEmoji(String emoji) {
-    _feedback();
+    _feedback(GameSound.reaction);
     widget.socket.emit('quick_reaction', {'roomCode': widget.roomCode, 'emoji': emoji});
   }
   void _nextRound() => widget.socket.emit('next_round');
