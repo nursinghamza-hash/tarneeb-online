@@ -3,10 +3,18 @@ name: Build Tarneeb Android APK
 on:
   push:
     branches: [main]
+    paths:
+      - "flutter_app/**"
+      - "backend/**"
+      - ".github/workflows/build-android-apk.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: tarneeb-release-apk-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-apk:
