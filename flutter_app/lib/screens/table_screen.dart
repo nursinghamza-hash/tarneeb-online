@@ -479,12 +479,13 @@ class _TableScreenState extends State<TableScreen> {
     final name = _playerName(seat);
     final avatar = _playerAvatar(seat);
     final count = seat < _counts.length ? _counts[seat] : 0;
+    final cardBackCount = (count is num ? ((count.toInt() + 1) ~/ 2) : 0).clamp(0, 7);
     return SizedBox(
       width: 70,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-          if (seat != _mySeat && (count as num) > 0)
-            for (var i = 0; i < 6; i++)
+          if (seat != _mySeat && cardBackCount > 0)
+            for (var i = 0; i < cardBackCount; i++)
               Positioned(
                 left: -5.0 + i * 9.0,
                 top: 10.0 + (i - 2.5).abs() * 2.2,
