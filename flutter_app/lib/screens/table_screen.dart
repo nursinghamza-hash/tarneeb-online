@@ -40,6 +40,7 @@ class _TableScreenState extends State<TableScreen> {
   int _secondsLeft = 15;
   int _customCutAt = 18;
   String? _selectedCardCode;
+  String? _recommendedCardCode;
   String? _firstTappedCardCode;
   Timer? _cardTapTimer;
   bool _disconnected = false;
@@ -76,6 +77,7 @@ class _TableScreenState extends State<TableScreen> {
     s.on('reaction', _onReaction);
     s.on('rematch_votes', _onRematchVotes);
     s.on('report_debug_result', _onDebugHands);
+    s.on('debug_hint_card', _onDebugHintCard);
     s.on('report_ack', _onReportAck);
     // Re-announce this seat after listeners are attached so no initial state is missed.
     s.emit('join_room', {
@@ -115,6 +117,7 @@ class _TableScreenState extends State<TableScreen> {
     s.off('reaction');
     s.off('rematch_votes');
     s.off('report_debug_result');
+    s.off('debug_hint_card');
     s.off('report_ack');
     super.dispose();
   }
@@ -143,11 +146,14 @@ class _TableScreenState extends State<TableScreen> {
         (lastPlayed['seat'] as num?)?.toInt() != _mySeat;
     if (playedByOther && _soundEnabled) SystemSound.play(SystemSoundType.click);
     final previousPhase = _phase;
+    final previousTurn = _turnSeat;
     final incomingPhase = (incoming['phase'] ?? 'waiting').toString();
+    final incomingTurn = (incoming['turnSeat'] as num?)?.toInt() ?? -1;
     setState(() {
       if (incomingPhase == 'trump_selection' && previousPhase != 'trump_selection') {
         _selectedSuit = 'SPADES';
       }
+      if (previousTurn != incomingTurn) _recommendedCardCode = null;
       _state = incoming;
       _players = (_state['players'] as List?) ?? _players;
       final handCodes = _hand.map((card) => (card as Map)['code'].toString()).toSet();
@@ -155,6 +161,9 @@ class _TableScreenState extends State<TableScreen> {
         _selectedCardCode = null;
         _firstTappedCardCode = null;
         _cardTapTimer?.cancel();
+      }
+      if (_recommendedCardCode != null && !handCodes.contains(_recommendedCardCode)) {
+        _recommendedCardCode = null;
       }
       _secondsLeft = 15;
     });
@@ -186,6 +195,17 @@ class _TableScreenState extends State<TableScreen> {
     if (!mounted) return;
     final message = data is Map ? (data['message'] ?? 'تم استلام البلاغ') : 'تم استلام البلاغ';
     _onNotice(message);
+  }
+
+  void _onDebugHintCard(dynamic data) {
+    if (!mounted || data is! Map) return;
+    final code = data['cardCode']?.toString();
+    if (code == null || !_hand.any((raw) => (raw as Map)['code'].toString() == code)) {
+      _onNotice('تعذر عرض الاقتراح؛ ربما تغير الدور');
+      return;
+    }
+    setState(() => _recommendedCardCode = code);
+    _onNotice('تم تمييز الورقة المقترحة باللون الأخضر');
   }
 
   void _onDebugHands(dynamic data) {
@@ -225,6 +245,14 @@ class _TableScreenState extends State<TableScreen> {
             ),
           ),
           actions: [
+            if (data['mode'] == 'host-development-diagnostic')
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  widget.socket.emit('debug_suggest_card', {'roomCode': widget.roomCode});
+                },
+                child: const Text('🎯 اقتراح الورقة المناسبة', style: TextStyle(color: kGold)),
+              ),
             if (data['mode'] == 'host-development-diagnostic')
               TextButton(
                 onPressed: () {
@@ -914,6 +942,7 @@ class _TableScreenState extends State<TableScreen> {
                   card: card,
                   isHand: true,
                   isSelected: selected,
+                  isRecommended: _recommendedCardCode == code,
                   isLegal: legal,
                   isPlayable: canPlay,
                   onTap: canPlay ? () => _onHandCardTap(raw) : null,
