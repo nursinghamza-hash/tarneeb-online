@@ -44,8 +44,9 @@ const suitMeta = {
 const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
 const allowedAvatars = ['😎', '🦁', '🐯', '🐼', '🐻', '🦊', '🐺', '👑', '🤠', '🥷', '🧑‍🚀', '🐸'];
 // Store this private diagnostic PIN only in Render environment settings (REPORT_DEBUG_PIN).
-const REPORT_DEBUG_PIN = String(process.env.REPORT_DEBUG_PIN || '0099');
-const DEBUG_TOOLS_ENABLED = process.env.DEBUG_TOOLS_ENABLED !== 'false';
+const REPORT_DEBUG_PIN = String(process.env.REPORT_DEBUG_PIN || '');
+// Hidden-hand diagnostics are disabled unless explicitly enabled with a private PIN.
+const DEBUG_TOOLS_ENABLED = process.env.DEBUG_TOOLS_ENABLED === 'true' && REPORT_DEBUG_PIN.length >= 12;
 
 function cleanAvatar(value) {
   const avatar = String(value || '').trim();
