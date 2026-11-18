@@ -48,12 +48,15 @@ class _TableScreenState extends State<TableScreen> {
   bool _disconnected = false;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
+  bool _debugHandsVisible = false;
+  List<dynamic> _debugHands = [];
   Timer? _clock;
 
   int get _mySeat => widget.mySeat;
   int? get _partnerSeat => (_state['partnerSeat'] as num?)?.toInt();
   String get _dealMode => (_state['dealMode'] ?? 'random').toString();
-  int get _myTeam => (_mySeat == 0 || _partnerSeat == _mySeat) ? 0 : 1;
+  int get _myTeam => _teamForSeat(_mySeat);
+  int _teamForSeat(int seat) => (seat == 0 || seat == _partnerSeat) ? 0 : 1;
   int get _turnSeat => (_state['turnSeat'] as num?)?.toInt() ?? -1;
   String get _phase => (_state['phase'] ?? 'waiting').toString();
   String get _status => (_state['status'] ?? 'waiting').toString();
@@ -163,6 +166,8 @@ class _TableScreenState extends State<TableScreen> {
       if (previousTurn != incomingTurn) _recommendedCardCode = null;
       _state = incoming;
       _players = (_state['players'] as List?) ?? _players;
+      _debugHandsVisible = incoming['debugMode'] == true;
+      _debugHands = _debugHandsVisible ? ((incoming['debugHands'] as List?) ?? const []) : [];
       final handCodes = _hand.map((card) => (card as Map)['code'].toString()).toSet();
       if (_selectedCardCode != null && !handCodes.contains(_selectedCardCode)) {
         _selectedCardCode = null;
@@ -217,62 +222,13 @@ class _TableScreenState extends State<TableScreen> {
 
   void _onDebugHands(dynamic data) {
     if (!mounted || data is! Map) return;
-    final hands = (data['hands'] as List?) ?? const [];
-    if (hands.isEmpty) {
-      _onNotice('لا توجد أوراق منافسين مكشوفة في هذه المرحلة');
-      return;
-    }
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          backgroundColor: kPanel,
-          title: const Text('أوراق اللاعبين الآخرين • وضع فحص التطوير', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, children: hands.map((raw) {
-                final item = Map<String, dynamic>.from(raw as Map);
-                final cards = (item['cards'] as List?) ?? const [];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('${item['name'] ?? _playerName((item['seat'] as num).toInt())}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 5),
-                    SizedBox(height: 46, child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(children: cards.map((card) => PlayingCardWidget(
-                        card: _cardModel(card), isMini: true, isPlayable: false,
-                      )).toList()),
-                    )),
-                  ]),
-                );
-              }).toList()),
-            ),
-          ),
-          actions: [
-            if (data['mode'] == 'host-development-diagnostic')
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  widget.socket.emit('debug_suggest_card', {'roomCode': widget.roomCode});
-                },
-                child: const Text('🎯 اقتراح الورقة المناسبة', style: TextStyle(color: kGold)),
-              ),
-            if (data['mode'] == 'host-development-diagnostic')
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  widget.socket.emit('debug_boost_hand', {'roomCode': widget.roomCode});
-                },
-                child: const Text('🔥 تعزيز يدي (قبل اللعب فقط)', style: TextStyle(color: kGold)),
-              ),
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
-          ],
-        ),
-      ),
-    );
+    final enabled = data['enabled'] == true;
+    setState(() {
+      _debugHandsVisible = enabled;
+      _debugHands = enabled ? ((data['hands'] as List?) ?? const []) : [];
+    });
+    if (!enabled) _onNotice('تم إخفاء أوراق اللاعبين والعودة للوضع الطبيعي');
+    else _onNotice('تم كشف أوراق اللاعبين الأربعة — أدخل 0099 مرة أخرى للإخفاء');
   }
 
   void _openReportDialog() {
@@ -283,7 +239,7 @@ class _TableScreenState extends State<TableScreen> {
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           backgroundColor: kPanel,
-          title: const Text('إبلاغ', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
+          title: const Text('إبلاغ / وضع الفحص 0099', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
           content: TextField(
             controller: controller,
             autofocus: true,
@@ -291,7 +247,7 @@ class _TableScreenState extends State<TableScreen> {
             maxLength: 500,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'اكتب مشكلتك',
+              hintText: 'اكتب مشكلتك أو أدخل 0099 لإظهار / إخفاء أوراق اللاعبين',
               hintStyle: const TextStyle(color: Colors.white54),
               filled: true, fillColor: Colors.black26,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -485,6 +441,41 @@ class _TableScreenState extends State<TableScreen> {
     return seat == _mySeat ? '😎' : '🙂';
   }
 
+  Widget _bidAmountBadge(int seat) {
+    final bid = _state['bid'] as Map?;
+    final bidderSeat = (bid?['seat'] as num?)?.toInt() ?? -1;
+    if (bid == null || bidderSeat != seat) return const SizedBox.shrink();
+
+    final amount = (bid['amount'] as num?)?.toInt() ?? 0;
+    final lastRound = _state['lastRound'] as Map?;
+    final roundNumber = (_state['roundNumber'] as num?)?.toInt();
+    final completedThisRound = lastRound != null &&
+        (lastRound['roundNumber'] as num?)?.toInt() == roundNumber &&
+        lastRound['bid'] is Map;
+    final bidMet = completedThisRound ? lastRound['bidMet'] == true : null;
+    final bidderTeam = _teamForSeat(seat);
+    final currentTricks = _tricks.length > bidderTeam ? (_tricks[bidderTeam] as num).toInt() : 0;
+    final contractColor = bidMet == true
+        ? const Color(0xFF22C55E)
+        : bidMet == false
+            ? const Color(0xFFE53935)
+            : currentTricks >= amount
+                ? const Color(0xFF22C55E)
+                : const Color(0xFFFFC928);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: contractColor,
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: Colors.white.withOpacity(.75), width: .8),
+        boxShadow: [BoxShadow(color: contractColor.withOpacity(.35), blurRadius: 5)],
+      ),
+      child: Text('طلب $amount',
+        style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w900)),
+    );
+  }
+
   Widget _playerBadge(int seat, String fallback) {
     final active = _turnSeat == seat && _status == 'playing';
     final name = _playerName(seat);
@@ -537,8 +528,9 @@ class _TableScreenState extends State<TableScreen> {
             const Positioned(right: -3, top: -2, child: Icon(Icons.wifi_off, color: Colors.orangeAccent, size: 14)),
           if (_reactions.containsKey(seat))
             Positioned(top: -35, child: _ReactionBubble(emoji: _reactions[seat]!)),
+          Positioned(bottom: -8, left: -9, child: _bidAmountBadge(seat)),
         ]),
-        const SizedBox(height: 3),
+        const SizedBox(height: 15),
         Container(
           constraints: const BoxConstraints(minWidth: 64, maxWidth: 70),
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -652,37 +644,56 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   Widget _scoreboard() {
-    final ownScore = _scores.length > _myTeam ? _scores[_myTeam] : 0;
-    final otherTeam = 1 - _myTeam;
-    final otherScore = _scores.length > otherTeam ? _scores[otherTeam] : 0;
-    final ownTricks = _tricks.length > _myTeam ? _tricks[_myTeam] : 0;
-    final otherTricks = _tricks.length > otherTeam ? _tricks[otherTeam] : 0;
-    Widget pill(dynamic value) => Container(
+    final partnerSeat = _partnerSeat ?? ((_mySeat + 2) % 4);
+    final sideSeats = [1, 2, 3, 0]
+        .map((offset) => (_mySeat + offset) % 4)
+        .where((seat) => seat != _mySeat && seat != partnerSeat)
+        .toList();
+    final rightSeat = sideSeats.isNotEmpty ? sideSeats.first : (_mySeat + 1) % 4;
+    final leftSeat = sideSeats.length > 1 ? sideSeats.last : (_mySeat + 3) % 4;
+
+    int scoreForSeat(int seat) {
+      final team = _teamForSeat(seat);
+      return _scores.length > team ? (_scores[team] as num).toInt() : 0;
+    }
+
+    Widget pill(int value) => Container(
       constraints: const BoxConstraints(minWidth: 31, minHeight: 25),
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(color: Colors.black.withOpacity(.9), borderRadius: BorderRadius.circular(11)),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(.92),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: Colors.white.withOpacity(.08)),
+      ),
       alignment: Alignment.center,
       child: Text('$value', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
     );
+
     return SizedBox(
       width: 88, height: 78,
       child: Stack(alignment: Alignment.center, children: [
         Container(width: 60, height: 60, decoration: BoxDecoration(
           border: Border.all(color: Colors.white24, width: 1.2), borderRadius: BorderRadius.circular(13))),
         Text('$_target', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)),
-        Positioned(top: 0, child: pill(ownScore)),
-        Positioned(bottom: 0, child: pill(otherScore)),
-        Positioned(left: 0, child: pill(ownTricks)),
-        Positioned(right: 0, child: pill(otherTricks)),
+        // Bottom and top are partners: both show the same team score.
+        Positioned(top: 0, child: pill(scoreForSeat(partnerSeat))),
+        Positioned(bottom: 0, child: pill(scoreForSeat(_mySeat))),
+        // Left and right are the opposing partnership: both show their shared score.
+        Positioned(left: 0, child: pill(scoreForSeat(leftSeat))),
+        Positioned(right: 0, child: pill(scoreForSeat(rightSeat))),
       ]),
     );
   }
 
   Widget _centerTable() {
     final southSeat = _mySeat;
-    final eastSeat = (southSeat + 1) % 4;
-    final northSeat = (southSeat + 2) % 4;
-    final westSeat = (southSeat + 3) % 4;
+    final northSeat = _partnerSeat ?? ((southSeat + 2) % 4);
+    final sideSeats = [1, 2, 3, 0]
+        .map((offset) => (southSeat + offset) % 4)
+        .where((seat) => seat != southSeat && seat != northSeat)
+        .toList();
+    final eastSeat = sideSeats.isNotEmpty ? sideSeats.first : ((southSeat + 1) % 4);
+    final westSeat = sideSeats.length > 1 ? sideSeats.last : ((southSeat + 3) % 4);
 
     Widget trickCardForSeat(int seat) {
       final raw = _trick.cast<dynamic>().firstWhere(
@@ -1039,6 +1050,96 @@ class _TableScreenState extends State<TableScreen> {
     child: Text(label, style: const TextStyle(fontSize: 10)),
   );
 
+  Widget _debugHandsOverlay() {
+    return LayoutBuilder(builder: (context, constraints) {
+      final rows = _debugHands;
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        constraints: BoxConstraints(maxWidth: math.min(constraints.maxWidth - 20, 440), maxHeight: constraints.maxHeight - 24),
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
+        decoration: BoxDecoration(
+          color: const Color(0xF20A0B0A),
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: const Color(0xFFFFC928), width: 1.4),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.65), blurRadius: 22, offset: const Offset(0, 8))],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
+            const Icon(Icons.visibility_rounded, color: Color(0xFFFFC928), size: 18),
+            const SizedBox(width: 6),
+            const Expanded(child: Text('وضع 0099 • أوراق اللاعبين الأربعة',
+              style: TextStyle(color: Color(0xFFFFD34F), fontWeight: FontWeight.w900, fontSize: 12))),
+            TextButton(
+              onPressed: _openReportDialog,
+              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 5), minimumSize: const Size(0, 28)),
+              child: const Text('0099 للإخفاء', style: TextStyle(color: Colors.white70, fontSize: 9)),
+            ),
+          ]),
+          const Divider(height: 8, color: Colors.white24),
+          if (rows.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(12),
+              child: Text('لا توجد أوراق موزعة حالياً', style: TextStyle(color: Colors.white70, fontSize: 11)),
+            )
+          else
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(mainAxisSize: MainAxisSize.min, children: rows.map((raw) {
+                  final item = Map<String, dynamic>.from(raw as Map);
+                  final seat = (item['seat'] as num?)?.toInt() ?? 0;
+                  final cards = ((item['cards'] as List?) ?? const []).toList();
+                  const order = {'HEARTS': 0, 'SPADES': 1, 'DIAMONDS': 2, 'CLUBS': 3};
+                  cards.sort((a, b) {
+                    final first = Map<String, dynamic>.from(a as Map);
+                    final second = Map<String, dynamic>.from(b as Map);
+                    final suitCompare = (order[first['suit'].toString().toUpperCase()] ?? 9)
+                        .compareTo(order[second['suit'].toString().toUpperCase()] ?? 9);
+                    return suitCompare != 0
+                        ? suitCompare
+                        : (second['rank'] as num).compareTo(first['rank'] as num);
+                  });
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(children: [
+                      SizedBox(
+                        width: 62,
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          Text(_playerAvatar(seat), style: const TextStyle(fontSize: 18)),
+                          Text(item['name']?.toString() ?? _playerName(seat),
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(color: Colors.white70, fontSize: 8)),
+                        ]),
+                      ),
+                      Expanded(
+                        child: SizedBox(
+                          height: 38,
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(children: cards.map((card) => Padding(
+                              padding: const EdgeInsets.only(right: 2),
+                              child: PlayingCardWidget(
+                                card: _cardModel(card),
+                                cardWidth: 23,
+                                cardHeight: 35,
+                                isPlayable: false,
+                              ),
+                            )).toList()),
+                          ),
+                        ),
+                      ),
+                    ]),
+                  );
+                }).toList()),
+              ),
+            ),
+          const SizedBox(height: 3),
+          const Text('أدخل 0099 من زر الإبلاغ مرة أخرى لإرجاع الطاولة للوضع الطبيعي',
+            textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 8)),
+        ]),
+      );
+    });
+  }
+
   Widget _waitingOrResult() {
     if (_status == 'waiting') {
       final count = _players.where((p) => p != null).length;
@@ -1294,6 +1395,8 @@ class _TableScreenState extends State<TableScreen> {
             Expanded(
               child: Stack(children: [
                 Positioned.fill(child: _centerTable()),
+                if (_debugHandsVisible)
+                  Align(alignment: Alignment.center, child: _debugHandsOverlay()),
                 if (_status == 'waiting' || _phase == 'cutting' || _phase == 'round_result' || _status == 'finished')
                   Align(
                     alignment: Alignment.center,
