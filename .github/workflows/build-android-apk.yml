@@ -1,4 +1,4 @@
-name: Build Tarneeb Android APK (Manual)
+name: Build Tarneeb Android APK
 
 on:
   push:
@@ -66,6 +66,14 @@ jobs:
           path.write_text(manifest)
           print(manifest)
           PY
+
+      - name: Validate backend JavaScript
+        working-directory: backend
+        run: |
+          node --check server.js
+          node --check game_rules.js
+          node --check bot_ai.js
+          node --check auction_rules.js
 
       - name: Get Flutter dependencies
         working-directory: flutter_app
