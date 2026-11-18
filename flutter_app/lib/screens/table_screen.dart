@@ -485,7 +485,7 @@ class _TableScreenState extends State<TableScreen> {
     final name = _playerName(seat);
     final avatar = _playerAvatar(seat);
     final count = seat < _counts.length ? _counts[seat] : 0;
-    final cardBackCount = (count is num ? ((count.toInt() + 1) ~/ 2) : 0).clamp(0, 7);
+    final cardBackCount = (count is num ? count.toInt() : 0).clamp(0, 13);
     return SizedBox(
       width: 70,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -493,19 +493,19 @@ class _TableScreenState extends State<TableScreen> {
           if (seat != _mySeat && cardBackCount > 0)
             for (var i = 0; i < cardBackCount; i++)
               Positioned(
-                left: -5.0 + i * 9.0,
-                top: 10.0 + (i - 2.5).abs() * 2.2,
+                left: -8.0 + i * 4.7,
+                top: 8.0 + (i - (cardBackCount - 1) / 2).abs() * 1.3,
                 child: Transform.rotate(
-                  angle: (i - (cardBackCount - 1) / 2) * .045,
+                  angle: (i - (cardBackCount - 1) / 2) * .035,
                   child: Container(
-                    width: 19, height: 29,
+                    width: 16, height: 32,
                     decoration: BoxDecoration(
                       color: const Color(0xFF9E1C2D),
                       borderRadius: BorderRadius.circular(3),
                       border: Border.all(color: const Color(0xFF4A1018), width: 1),
                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(.35), blurRadius: 3, offset: const Offset(1, 2))],
                     ),
-                    child: const Center(child: Icon(Icons.style_rounded, color: Color(0x55FFFFFF), size: 11)),
+                    child: const Center(child: Icon(Icons.style_rounded, color: Color(0x55FFFFFF), size: 9)),
                   ),
                 ),
               ),
@@ -623,6 +623,29 @@ class _TableScreenState extends State<TableScreen> {
     );
   }
 
+  Widget _footerInfoBar({required String label, required String value}) {
+    return Container(
+      height: 29,
+      decoration: BoxDecoration(
+        color: const Color(0xFF050505),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(color: Colors.white.withOpacity(.08)),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Center(child: Text(value,
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700))),
+        ),
+        Container(width: 1, height: 19, color: Colors.white.withOpacity(.08)),
+        SizedBox(
+          width: 72,
+          child: Center(child: Text(label,
+            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600))),
+        ),
+      ]),
+    );
+  }
+
   Widget _scoreboard() {
     final ownScore = _scores.length > _myTeam ? _scores[_myTeam] : 0;
     final otherTeam = 1 - _myTeam;
@@ -674,8 +697,8 @@ class _TableScreenState extends State<TableScreen> {
     return LayoutBuilder(builder: (context, constraints) {
       final maxWidth = constraints.maxWidth;
       final maxHeight = constraints.maxHeight;
-      final boardWidth = math.min(maxWidth * .76, maxHeight * .84).clamp(230.0, 440.0).toDouble();
-      final boardHeight = math.min(maxHeight * .91, boardWidth * 1.22).toDouble();
+      final boardWidth = math.min(maxWidth * .72, maxHeight * .84).clamp(230.0, 440.0).toDouble();
+      final boardHeight = math.min(maxHeight * .91, boardWidth * 1.30).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
       final boardTop = (maxHeight - boardHeight) / 2 + 17;
       final centerWidth = math.min(boardWidth * .50, 185.0).toDouble();
@@ -911,7 +934,7 @@ class _TableScreenState extends State<TableScreen> {
 
       final availableWidth = constraints.maxWidth - 18;
       final cardWidth = (availableWidth / 6.0).clamp(45.0, 59.0).toDouble();
-      final cardHeight = cardWidth * 1.48;
+      final cardHeight = cardWidth * 1.82;
       final count = cards.length;
       final step = count <= 1
         ? cardWidth
@@ -1207,69 +1230,66 @@ class _TableScreenState extends State<TableScreen> {
                       child: _trumpSelectionPanel(),
                     ),
                   ),
-                if (_status == 'playing' && ['playing', 'trick_resolving'].contains(_phase))
-                  Positioned(
-                    left: 12, right: 12, bottom: 7,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(.72),
-                        borderRadius: BorderRadius.circular(11),
-                        border: Border.all(color: Colors.white.withOpacity(.08)),
-                      ),
-                      child: Row(children: [
-                        Text('لنا: ' + _tricks[_myTeam].toString(),
-                          style: const TextStyle(color: Color(0xFFFFD34F), fontSize: 11, fontWeight: FontWeight.bold)),
-                        const Spacer(),
-                        Text(
-                          bid == null ? 'الطلب لم يُحسم بعد'
-                            : 'الطلب ' + bid['amount'].toString() + (bid['symbol'] == null ? ' • اختيار الحكم' : ' ' + bid['symbol'].toString()),
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
-                        ),
-                        const Spacer(),
-                        Text('لهم: ' + _tricks[1 - _myTeam].toString(),
-                          style: const TextStyle(color: Color(0xFFFFD34F), fontSize: 11, fontWeight: FontWeight.bold)),
-                      ]),
-                    ),
-                  ),
               ]),
             ),
             if (_hand.isNotEmpty && _status == 'playing') _handArea(),
             Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 4),
+              height: 82,
+              padding: const EdgeInsets.fromLTRB(12, 7, 12, 7),
               decoration: BoxDecoration(
                 color: const Color(0xF0101110),
-                border: Border(top: BorderSide(color: Colors.white.withOpacity(.07))),
+                border: Border(top: BorderSide(color: Colors.white.withOpacity(.09))),
               ),
-              child: Row(children: [
-                Container(
-                  width: 36, height: 36,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF34443B),
-                    border: Border.all(color: const Color(0xFFFFC928), width: 1.5),
+              child: Row(
+                textDirection: TextDirection.ltr,
+                children: [
+                  SizedBox(
+                    width: 116,
+                    child: Row(children: [
+                      Container(
+                        width: 48, height: 48,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFF252525),
+                          border: Border.all(color: const Color(0xFFFFC928), width: 2.5),
+                          boxShadow: const [BoxShadow(color: Color(0x55FFC928), blurRadius: 9)],
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(_playerAvatar(_mySeat), style: const TextStyle(fontSize: 27)),
+                      ),
+                      const SizedBox(width: 7),
+                      InkWell(
+                        onTap: _openReactions,
+                        borderRadius: BorderRadius.circular(9),
+                        child: const Padding(
+                          padding: EdgeInsets.all(5),
+                          child: Icon(Icons.chat_bubble_rounded, color: Colors.white70, size: 25),
+                        ),
+                      ),
+                    ]),
                   ),
-                  alignment: Alignment.center,
-                  child: Text(_playerAvatar(_mySeat), style: const TextStyle(fontSize: 21)),
-                ),
-                const SizedBox(width: 8),
-                Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(widget.playerName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                  Text(_myTurn && _status == 'playing' ? 'دورك الآن' : 'متصل بالطاولة',
-                    style: TextStyle(color: _myTurn && _status == 'playing' ? const Color(0xFFFFD34F) : Colors.white38, fontSize: 9)),
-                ])),
-                InkWell(
-                  onTap: _openReactions,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    width: 42, height: 36,
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(.07), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white12)),
-                    child: const Icon(Icons.emoji_emotions_outlined, color: Color(0xFFFFD34F), size: 21),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Directionality(
+                      textDirection: TextDirection.rtl,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _footerInfoBar(
+                            label: 'أكلات',
+                            value: _tricks.length > _myTeam ? _tricks[_myTeam].toString() : '0',
+                          ),
+                          const SizedBox(height: 5),
+                          _footerInfoBar(
+                            label: 'طلب',
+                            value: bid == null ? '—' : bid['amount'].toString() + (bid['symbol'] == null ? '' : ' ' + bid['symbol'].toString()),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ]),
+                ],
+              ),
             ),
           ]),
         ),
