@@ -103,7 +103,7 @@ function publicPlayers(room) {
 function sendRoom(room) {
   io.to(room.code).emit('room_update', {
     roomCode: room.code, targetScore: room.targetScore,
-    scoringPreset: room.scoringPreset || 'house_16_14',
+    scoringPreset: room.scoringPreset || 'jawaker',
     aiPractice: room.aiPractice === true,
     status: room.status, players: publicPlayers(room),
     partnerSeat: room.partnerSeat, dealMode: room.dealMode,
@@ -116,7 +116,7 @@ function stateFor(room, seat) {
     targetScore: room.targetScore,
     status: room.status,
     phase: room.phase,
-    scoringPreset: room.scoringPreset || 'house_16_14',
+    scoringPreset: room.scoringPreset || 'jawaker',
     aiPractice: room.aiPractice === true,
     players: publicPlayers(room),
     mySeat: seat,
@@ -424,7 +424,7 @@ function createRoom(socket, payload) {
   const token = crypto.randomBytes(18).toString('hex');
   const room = {
     code, targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
-    scoringPreset: payload.scoringPreset === 'jawaker' ? 'jawaker' : 'house_16_14',
+    scoringPreset: payload.scoringPreset === 'house_16_14' ? 'house_16_14' : 'jawaker',
     partnerSeat: 2, dealMode: 'random', aiPractice: payload.aiPractice === true, reports: [],
     tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
     dealPattern: 'one', lastTrick: [], trickTimer: null, debugEnabledSeats: new Set(),
