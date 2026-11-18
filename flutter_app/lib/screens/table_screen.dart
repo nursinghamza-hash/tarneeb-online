@@ -496,7 +496,7 @@ class _TableScreenState extends State<TableScreen> {
                 left: -5.0 + i * 9.0,
                 top: 10.0 + (i - 2.5).abs() * 2.2,
                 child: Transform.rotate(
-                  angle: (i - (backCount - 1) / 2) * .045,
+                  angle: (i - (cardBackCount - 1) / 2) * .045,
                   child: Container(
                     width: 19, height: 29,
                     decoration: BoxDecoration(
