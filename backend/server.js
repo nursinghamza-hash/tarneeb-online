@@ -423,9 +423,12 @@ function createRoom(socket, payload) {
   const code = roomCode();
   const token = crypto.randomBytes(18).toString('hex');
   const room = {
-    code, targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
+    code,
+    hostToken: token,
+    targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
     scoringPreset: payload.scoringPreset === 'house_16_14' ? 'house_16_14' : 'jawaker',
     partnerSeat: 2, dealMode: 'random', aiPractice: payload.aiPractice === true, reports: [],
+    players: [null, null, null, null],
     tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
     dealPattern: 'one', lastTrick: [], trickTimer: null, debugEnabledSeats: new Set(),
     status: 'waiting', turnSeat: 0, bidTurn: null, bid: null, passed: [],
