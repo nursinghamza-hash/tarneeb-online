@@ -74,6 +74,7 @@ jobs:
           node --check game_rules.js
           node --check bot_ai.js
           node --check auction_rules.js
+          npm test
 
       - name: Get Flutter dependencies
         working-directory: flutter_app
