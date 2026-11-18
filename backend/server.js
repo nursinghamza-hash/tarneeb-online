@@ -24,7 +24,7 @@ const {
 
 const app = express();
 app.use(cors());
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'tarneeb-online', rooms: rooms.size }));
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'tarneeb-online', version: process.env.RENDER_GIT_COMMIT || 'unknown', rooms: rooms.size }));
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
