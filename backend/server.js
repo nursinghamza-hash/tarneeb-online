@@ -38,7 +38,7 @@ const suitMeta = {
   SPADES: { symbol: '♠', name: 'بستوني' },
   HEARTS: { symbol: '♥', name: 'كبة' },
   DIAMONDS: { symbol: '♦', name: 'ديناري' },
-  CLUBS: { symbol: '♣', name: 'سباتي' },
+  CLUBS: { symbol: '♣', name: 'سنك' },
 };
 const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
 const allowedAvatars = ['😎', '🦁', '🐯', '🐼', '🐻', '🦊', '🐺', '👑', '🤠', '🥷', '🧑‍🚀', '🐸'];
