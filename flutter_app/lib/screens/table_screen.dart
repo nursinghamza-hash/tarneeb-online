@@ -282,7 +282,7 @@ class _TableScreenState extends State<TableScreen> {
             maxLength: 500,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'اكتب مشكلتك أو أدخل رمز الفحص لإظهار / إخفاء الأوراق',
+              hintText: 'اكتب مشكلتك أو أدخل 0099 لإظهار / إخفاء أوراق اللاعبين الأربعة',
               hintStyle: const TextStyle(color: Colors.white54),
               filled: true, fillColor: Colors.black26,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
