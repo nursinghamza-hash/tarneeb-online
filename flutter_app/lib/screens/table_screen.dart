@@ -1169,7 +1169,7 @@ class _TableScreenState extends State<TableScreen> {
               ),
             ),
           const SizedBox(height: 3),
-          const Text('أدخل رمز الفحص مرة أخرى من زر الإبلاغ لإرجاع الطاولة للوضع الطبيعي',
+          const Text('عرض خاص على هذا الجهاز فقط',
             textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 8)),
         ]),
       );
