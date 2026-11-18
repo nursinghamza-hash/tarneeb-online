@@ -829,68 +829,106 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   Widget _handArea() {
-    if (_hand.isEmpty) return const SizedBox(height: 8);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(8, 0, 8, 2),
-      padding: const EdgeInsets.fromLTRB(5, 5, 5, 2),
-      decoration: BoxDecoration(color: Colors.black.withOpacity(.23), borderRadius: BorderRadius.circular(13)),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Row(children: [
-          const Text('أوراقك', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
-          const Spacer(),
-          Text('${_hand.length} ورقة', style: const TextStyle(color: kGold, fontSize: 10)),
-        ]),
-        const SizedBox(height: 4),
-        LayoutBuilder(builder: (context, constraints) {
-          const cardWidth = 64.0;
-          const cardHeight = 106.0;
-          final count = _hand.length;
-          final availableWidth = constraints.maxWidth;
-          final step = count <= 1 ? cardWidth : ((availableWidth - cardWidth) / (count - 1)).clamp(22.0, cardWidth).toDouble();
-          final handWidth = cardWidth + (count - 1) * step;
-          final contentWidth = handWidth < availableWidth ? availableWidth : handWidth;
-          return SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(
-              width: contentWidth, height: cardHeight,
-              child: Stack(clipBehavior: Clip.none, children: List.generate(count, (layerIndex) {
-                // Draw left-side cards first, then overlay toward the right so every index remains visible.
-                final index = count - 1 - layerIndex;
-                final raw = _hand[index];
-                final card = _cardModel(raw);
-                final code = card.code;
-                final legal = _isLegalCard(raw);
-                final canPlay = _myTurn && _phase == 'playing' && legal;
-                final selected = _selectedCardCode == code;
-                final face = PlayingCardWidget(
-                  card: card,
-                  isHand: true,
-                  isSelected: selected,
-                  isRecommended: _recommendedCardCode == code,
-                  isLegal: legal,
-                  isPlayable: canPlay,
-                  onTap: canPlay ? () => _onHandCardTap(raw) : null,
-                );
-                return Positioned(
-                  right: index * step,
-                  top: 5,
-                  child: Draggable<Map<String, dynamic>>(
-                    data: Map<String, dynamic>.from(raw as Map),
-                    maxSimultaneousDrags: canPlay ? 1 : 0,
-                    feedback: Material(
-                      color: Colors.transparent,
-                      child: PlayingCardWidget(card: card, isHand: true, isSelected: true, isPlayable: false),
+    if (_hand.isEmpty) return const SizedBox.shrink();
+    return LayoutBuilder(builder: (context, constraints) {
+      const suitOrder = {
+        CardSuit.clubs: 0,
+        CardSuit.diamonds: 1,
+        CardSuit.spades: 2,
+        CardSuit.hearts: 3,
+      };
+      final cards = _hand.map((raw) => <String, dynamic>{
+        'raw': raw,
+        'card': _cardModel(raw),
+      }).toList();
+      cards.sort((a, b) {
+        final first = a['card'] as PlayingCardModel;
+        final second = b['card'] as PlayingCardModel;
+        final bySuit = suitOrder[first.suit]!.compareTo(suitOrder[second.suit]!);
+        if (bySuit != 0) return bySuit;
+        return second.rank.compareTo(first.rank);
+      });
+
+      final availableWidth = constraints.maxWidth - 18;
+      final cardWidth = (availableWidth / 6.0).clamp(45.0, 59.0).toDouble();
+      final cardHeight = cardWidth * 1.48;
+      final count = cards.length;
+      final step = count <= 1
+        ? cardWidth
+        : ((availableWidth - cardWidth) / (count - 1)).clamp(16.0, cardWidth).toDouble();
+      final handWidth = cardWidth + (count - 1) * step;
+
+      return Container(
+        margin: const EdgeInsets.fromLTRB(7, 0, 7, 2),
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+        decoration: BoxDecoration(
+          color: const Color(0xE9101110),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(15), bottom: Radius.circular(8)),
+          border: Border.all(color: Colors.white.withOpacity(.07)),
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(children: [
+            const Text('أوراقك', style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Text(count.toString() + ' ورقة', style: const TextStyle(color: Color(0xFFFFD34F), fontSize: 10, fontWeight: FontWeight.bold)),
+            if (_phase == 'playing' && _myTurn) ...[
+              const SizedBox(width: 8),
+              const Icon(Icons.touch_app_rounded, size: 13, color: Color(0xFFFFD34F)),
+            ],
+          ]),
+          const SizedBox(height: 5),
+          SizedBox(
+            height: cardHeight + 5,
+            width: double.infinity,
+            child: Center(
+              child: SizedBox(
+                width: handWidth,
+                height: cardHeight + 3,
+                child: Stack(clipBehavior: Clip.none, children: List.generate(count, (layerIndex) {
+                  // Index zero is placed at the far right. Reverse suit order here so
+                  // the visible left-to-right hand order is: hearts, spades, diamonds, clubs.
+                  final index = count - 1 - layerIndex;
+                  final raw = cards[index]['raw'];
+                  final card = cards[index]['card'] as PlayingCardModel;
+                  final legal = _isLegalCard(raw);
+                  final canPlay = _myTurn && _phase == 'playing' && legal;
+                  final selected = _selectedCardCode == card.code;
+                  final face = PlayingCardWidget(
+                    card: card,
+                    isHand: true,
+                    cardWidth: cardWidth,
+                    cardHeight: cardHeight,
+                    isSelected: selected,
+                    isRecommended: _recommendedCardCode == card.code,
+                    isLegal: legal,
+                    isPlayable: canPlay,
+                    onTap: canPlay ? () => _onHandCardTap(raw) : null,
+                  );
+                  return Positioned(
+                    right: index * step,
+                    top: selected ? 0 : 3,
+                    child: Draggable<Map<String, dynamic>>(
+                      data: Map<String, dynamic>.from(raw as Map),
+                      maxSimultaneousDrags: canPlay ? 1 : 0,
+                      feedback: Material(
+                        color: Colors.transparent,
+                        child: PlayingCardWidget(
+                          card: card, isHand: true,
+                          cardWidth: cardWidth, cardHeight: cardHeight,
+                          isSelected: true, isPlayable: false,
+                        ),
+                      ),
+                      childWhenDragging: Opacity(opacity: .28, child: face),
+                      child: face,
                     ),
-                    childWhenDragging: Opacity(opacity: .35, child: face),
-                    child: face,
-                  ),
-                );
-              })),
+                  );
+                })),
+              ),
             ),
-          );
-        }),
-      ]),
-    );
+          ),
+        ]),
+      );
+    });
   }
 
   Widget _cutChoice(String label, int cutAt) => OutlinedButton(
