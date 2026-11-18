@@ -30,7 +30,7 @@ class _TableScreenState extends State<TableScreen> {
     'SPADES': '♠', 'HEARTS': '♥', 'DIAMONDS': '♦', 'CLUBS': '♣',
   };
   static const Map<String, String> _suitNames = {
-    'SPADES': 'بستوني', 'HEARTS': 'كبة', 'DIAMONDS': 'ديناري', 'CLUBS': 'سباتي',
+    'SPADES': 'بستوني', 'HEARTS': 'كبة', 'DIAMONDS': 'ديناري', 'CLUBS': 'سنك',
   };
 
   Map<String, dynamic> _state = {};
@@ -616,11 +616,11 @@ class _TableScreenState extends State<TableScreen> {
       final maxWidth = constraints.maxWidth;
       final maxHeight = constraints.maxHeight;
       final boardWidth = math.min(maxWidth - 30, maxHeight * .84).clamp(260.0, 440.0).toDouble();
-      final boardHeight = math.min(maxHeight * .91, boardWidth * 1.22);
+      final boardHeight = math.min(maxHeight * .91, boardWidth * 1.22).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
       final boardTop = (maxHeight - boardHeight) / 2 + 8;
-      final centerWidth = math.min(boardWidth * .68, 235.0);
-      final centerHeight = math.min(boardHeight * .43, 194.0);
+      final centerWidth = math.min(boardWidth * .68, 235.0).toDouble();
+      final centerHeight = math.min(boardHeight * .43, 194.0).toDouble();
 
       return Container(
         decoration: const BoxDecoration(
