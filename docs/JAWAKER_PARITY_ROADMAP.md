@@ -2,67 +2,79 @@
 
 ## Scope and reference
 
-This project is an independent Tarneeb implementation. Jawaker is used as a gameplay and UX reference; this repository does not copy its source code, private APIs, proprietary assets, or branding.
+This is an independent Tarneeb implementation. Jawaker is a gameplay and UX reference only; the project does not copy Jawaker source code, private APIs, protected artwork, or branding.
 
-The uploaded `tarneeb_global_pro.html` file is a browser mock-up, not the Jawaker APK. It provides design/feature requirements such as the four-seat table, auction overlay, suit selection, report dialog, card tracker, score history, settings, and custom dealing options.
+The supplied `tarneeb_global_pro.html` was inspected as a local browser mock-up/feature specification. It describes the table layout, auction, suit selection, card tracker, score history, quick-chat phrases, settings and 0099 development console. It is not the Jawaker Android APK. The separate APK mentioned as a Drive file was not available for direct inspection in this session.
 
-## Verified base rules
+## Rules reference
 
-The standard Tarneeb rules published by Jawaker describe:
-- Four players in two partnerships, 52 cards, 13 cards per player.
-- Counterclockwise play; dealer moves to the player on the right after a round.
-- Auction starts to the dealer's right. Bids represent 7–13 tricks; each bid must exceed the previous bid. A pass removes the player from that auction.
-- Highest bidder selects the trump suit and leads the first trick.
-- Players must follow the led suit if possible. If unable, any card may be discarded; trump beats non-trump.
-- Successful contracts score the number of tricks won; a failed contract deducts the bid and defenders score their actual tricks.
-- Unannounced sweep (13 tricks without bidding 13): +16; declared and successful 13: +26; failed bid of 13: −16.
-- Match targets: 31, 41, or 61.
+Jawaker's published rules describe four players in opposite partnerships, 52 cards and 13 cards per player; counterclockwise play; bidding from 7 to 13 starting at the dealer's right; passing exits the current auction; the winning bidder chooses trump and leads; players follow suit if possible; trump beats non-trump. The published score system is +26 for a successful declared 13, +16 for an unannounced sweep, and -16 for a failed declared 13.
 
 Reference: https://blog.jawaker.com/en/tarneeb-rules-en/
 
+The supplied HTML/brief uses a custom score system of +16 for a successful declared 13 and +14 for an unannounced sweep. The app keeps these as separate presets instead of silently mixing the two rule sets.
+
 ## Implemented on `feature/jawaker-tarneeb-parity-v1`
 
-- Server seat geometry: 0 south, 1 east/right, 2 north, 3 west/left. Flutter rotates these positions around the current local player so the local hand remains at the bottom for any seat.
-- Deal and bidding begin to the dealer's right and proceed counterclockwise.
-- Centralized rules helpers for seat order, card dealing, follow-suit legality, trick winner, and scoring.
-- Random one-card-at-a-time deal and optional 4-3-3-3 batch deal.
-- Dealer must open at 7 or higher if the other three players pass without a bid.
-- A passed player cannot re-enter the auction; the server enforces this independently of the UI.
-- Server keeps the fourth card visible briefly so all clients can render the completed trick before it resolves.
-- Public played-card history powers the card tracker. Opponents' unplayed cards are not sent in ordinary game state.
-- A persistent in-room round history records the contract, trump suit, trick counts, bid result, and before/after team scores.
-- Optional AI practice rooms fill the three other seats with bots named Al-Zaeem, Abu Shehab and Al-Aqeed; bots use a separate heuristic module for bidding and legal cooperative card play.
-- Intentionally biased dealing presets from the HTML mock-up (high-action / VIP advantage / minimum-HCP filtering) are not enabled in fair public rooms. The default server shuffle uses cryptographic Fisher–Yates; batch dealing and manual cut remain available. Normal friend rooms remain four-human rooms.
-- 0099 diagnostics are gated by server environment settings and restricted to the room host. They can reveal the other three hands, request a tactical card suggestion highlighted in green, and optionally boost the host's hand before the first card is played.
-- Regression tests cover table orientation, deal order, batch distribution, bidding order, forced opening, irreversible pass, follow-suit, trick winner, scoring and invalid inputs.
-- Pull request CI runs backend syntax/rules tests and Flutter analysis/Android build.
+### Table and cards
+- Server seats: 0 south, 1 east/right, 2 north/partner, 3 west/left. Teams are 0+2 versus 1+3.
+- Flutter rotates the table and trick-card positions around the local player so the player's own hand remains at the bottom from every seat.
+- Each hand is sorted by suit and rank, A (14) down to 2. Once trump is selected, trump cards move to the beginning.
+- Each player sees their own 13 cards. Normal game state never sends opponents' unplayed cards.
 
-## Scoring variants
+### Dealing and bidding
+- Server uses cryptographic Fisher–Yates shuffle. It supports one-card-at-a-time dealing, optional 4-3-3-3 batches, and a manual cut phase.
+- Bidding starts to the dealer's right and moves counterclockwise. Valid bids are 7–13, and each new bid must exceed the current bid.
+- Passing is final for that auction; the server rejects later bids from a player who passed.
+- If the first three players pass without a bid, the dealer must open at 7.
+- A bid of 13 closes the auction immediately.
+- Auction and trump selection are separate phases. Only the highest bidder selects the trump suit after the auction; a bot winner selects automatically.
+- The bidder then leads the first trick.
 
-The server default follows Jawaker's published scoring: declared Kaboot +26, unannounced sweep +16, failed declared 13 −16.
+### Trick play and score
+- Server-authoritative validation enforces following suit whenever the player has the led suit.
+- If the player is void in the led suit, any card may be played. The winner is the highest trump if a trump was played; otherwise, the highest card in the led suit.
+- The fourth card remains visible briefly so all clients can see the completed trick before resolution. The trick winner leads the next trick.
+- Match targets are 31 (default), 41, and 61.
+- Default scoring in the new-room screen is the supplied custom preset: successful declared 13 = +16; unannounced sweep = +14; failed declared 13 = -16.
+- Jawaker scoring is separately selectable: successful declared 13 = +26; unannounced sweep = +16; failed declared 13 = -16.
+- If declared 13 fails, the defending team receives its actual trick count only; no unannounced-sweep bonus is stacked onto the failed declared 13.
+- Completed round history records the bid, trump, trick counts, success/failure, and score before and after the round.
 
-The pure rules helper accepts custom options for house rules. The values requested in the supplied brief (declared Kaboot +16 and sweep +14) can be represented as:
-`scoreRound(scores, tricks, bidTeam, bidAmount, { declaredKabootPoints: 16, sweepPoints: 14 })`
+### AI practice
+- A practice room can fill seats 1–3 with أبو شهاب (partner), الزعيم (right opponent), and العقيد (left opponent).
+- Bots use heuristic bidding, avoid unnecessary overbidding against their partner, follow suit, and use cooperative card-selection rules.
+- The bot partner can respond to the approved quick-chat phrases.
+- A player can restart an AI practice match without waiting for the three bots to vote again.
+- Current AI is a first heuristic version, not an expert/grandmaster engine. It still needs simulation and human gameplay testing.
 
-The room-creation screen now exposes both presets, sends the selected preset to the authoritative server, and the server applies it for round scoring.
+### Card memory, quick chat and 0099
+- Card tracker shows the 52 cards by suit, marking the player's known cards and cards already played.
+- Round history shows each completed contract and score changes.
+- Quick-chat messages are selected from four preset phrases. They appear temporarily above the sending seat; the AI partner may send a preset reply.
+- 0099 development diagnostics are disabled unless both Render variables are configured: `REPORT_DEBUG_PIN=0099` and `DEBUG_TOOLS_ENABLED=true`.
+- The 0099 console is restricted to the room host. It can reveal the other seats' hands, request a tactical card suggestion (highlighted in green), and optionally boost the host hand before the first card is played.
+- Do not enable 0099 on public competitive rooms.
 
-## Developer-only 0099 setup
+### Dealing fairness
+- The public default uses a cryptographically shuffled deck. The HTML mock-up's high-action/VIP advantage/minimum-HCP filters deliberately bias hand strength; these are not enabled in public rooms so the server cannot secretly favor a player.
+- Batch dealing and manual cut remain selectable.
 
-On the Render service, set both:
-- `REPORT_DEBUG_PIN=0099`
-- `DEBUG_TOOLS_ENABLED=true`
+## Validation
 
-Only the host of a room can use the diagnostics. Do not enable this for public competitive rooms. Leave both unset in normal production.
+- Backend CI runs syntax checks and Node regression tests for rules, dealing, auction/trump selection, scoring and AI choices.
+- Android CI runs Flutter dependency resolution, Flutter source analysis, Android release APK build and artifact upload.
+- These checks do not replace end-to-end multiplayer tests with four independent clients or real-device testing.
 
-## Not yet implemented / release blockers
+## Remaining work and release gates
 
-- Full AI practice mode (partner and two opponents). The current online table requires four real players; the HTML mock-up's bot characters are not yet part of the multiplayer server.
-- Animated card dealing and complete turn/trick animations; the fourth card now has a short reveal delay, but this is not yet a full animation suite.
-- Persistent player profiles, ratings, leaderboards, clubs, friends, voice chat, gifts, tournaments, abuse/report moderation and reconnection-safe persistent rooms.
-- Additional scoring regression tests cover both selectable presets.
-- End-to-end multiplayer tests with four actual socket clients, plus device testing on Android and iOS.
-- Production deployment verification and final signed release APK.
+- Improve AI card counting, signalling, difficulty levels and partnership strategy.
+- Complete richer card movement/deal/trick/round animations and custom sound effects.
+- Add persistent profiles, friends, clubs, tournaments, moderation, and robust reconnect-safe room persistence.
+- Test complete matches with four independent Socket.IO clients and on Android/iOS devices.
+- Confirm Render is running the exact backend commit used by the APK.
+- Produce and test a signed production release before calling the app production-ready.
 
 ## Safe release rule
 
-Do not merge this branch or distribute an APK as a final release until both GitHub Actions workflows pass, the multiplayer scenarios above are tested, and the Render service is confirmed to be running the matching backend commit.
+Do not merge or distribute a production release solely because CI passes. Verify the backend deployment, test full matches, and test the APK on real devices first.
