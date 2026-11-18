@@ -256,8 +256,6 @@ class _TableScreenState extends State<TableScreen> {
       _debugHandsVisible = enabled;
       _debugHands = enabled ? ((data['hands'] as List?) ?? const []) : [];
     });
-    if (!enabled) _onNotice('تم إخفاء أوراق اللاعبين والعودة للوضع الطبيعي');
-    else _onNotice('تم كشف أوراق اللاعبين الأربعة — أدخل 0099 مرة أخرى للإخفاء');
   }
 
   void _openReportDialog() {
