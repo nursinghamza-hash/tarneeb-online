@@ -717,54 +717,51 @@ class _TableScreenState extends State<TableScreen> {
     if (_phase != 'bidding' || _status != 'playing') return const SizedBox.shrink();
     final bid = _state['bid'] as Map?;
     final minBid = bid == null ? 7 : ((bid['amount'] as num).toInt() + 1);
+    final passed = (_state['passed'] as List?)?.map((e) => (e as num).toInt()).toSet() ?? <int>{};
+    final dealer = (_state['dealerSeat'] as num?)?.toInt() ?? -1;
+    final forcedOpen = bid == null && _myTurn && _mySeat == dealer &&
+        [0, 1, 2, 3].where((seat) => seat != dealer).every(passed.contains);
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 2, 12, 6),
-      padding: const EdgeInsets.all(9),
-      decoration: BoxDecoration(color: kPanel, borderRadius: BorderRadius.circular(16), border: Border.all(color: kGold.withOpacity(.2))),
-      child: Column(children: [
-        Row(children: [
-          const Text('المزايدة على عدد الأكلات', style: TextStyle(color: Colors.white70, fontSize: 11)),
-          const Spacer(),
-          Text(bid == null ? 'أول طلب يبدأ من 7' : 'أعلى طلب: ${bid['amount']}',
-            style: const TextStyle(color: kGold, fontSize: 11)),
-        ]),
-        const SizedBox(height: 8),
-        Row(children: [
-          Expanded(child: Wrap(
-            spacing: 5,
-            children: List.generate(7, (i) {
-              final bidValue = i + 7;
-              final enabled = _myTurn && bidValue >= minBid;
-              return SizedBox(width: 34, height: 34, child: ElevatedButton(
-                onPressed: enabled ? () => _submitBid(bidValue) : null,
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  backgroundColor: kGold,
-                  foregroundColor: kInk,
-                  disabledBackgroundColor: Colors.white10,
-                  disabledForegroundColor: Colors.white24,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: Text('$bidValue', style: const TextStyle(fontWeight: FontWeight.bold)),
-              ));
-            }),
-          )),
-          const SizedBox(width: 6),
-          Builder(builder: (context) {
-            final passed = (_state['passed'] as List?)?.map((e) => (e as num).toInt()).toSet() ?? <int>{};
-            final dealer = (_state['dealerSeat'] as num?)?.toInt() ?? -1;
-            final forcedOpen = bid == null && _myTurn && _mySeat == dealer &&
-                [0, 1, 2, 3].where((seat) => seat != dealer).every(passed.contains);
-            return TextButton(
-              onPressed: _myTurn && !forcedOpen ? _passBid : null,
-              child: Text(forcedOpen ? 'طلب إجباري 7' : 'تمرير',
-                style: const TextStyle(color: Colors.white70)),
-            );
-          }),
-        ]),
-        const SizedBox(height: 4),
-        const Text('لون الحكم يختاره صاحب أعلى طلب بعد انتهاء المزايدة',
-          style: TextStyle(color: Colors.white38, fontSize: 9)),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xF0181918),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0x55FFFFFF)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.55), blurRadius: 16, offset: const Offset(0, 7))],
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('اختر الطلب', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 5),
+        Text(bid == null ? 'أول طلب يبدأ من 7' : 'أعلى طلب: ' + bid['amount'].toString(),
+          style: const TextStyle(color: Colors.white60, fontSize: 10)),
+        const SizedBox(height: 12),
+        Wrap(alignment: WrapAlignment.center, spacing: 7, runSpacing: 7, children: List.generate(7, (i) {
+          final amount = i + 7;
+          final enabled = _myTurn && amount >= minBid;
+          return SizedBox(
+            width: 39, height: 39,
+            child: ElevatedButton(
+              onPressed: enabled ? () => _submitBid(amount) : null,
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.zero,
+                backgroundColor: const Color(0xFFFFC928),
+                foregroundColor: const Color(0xFF201806),
+                disabledBackgroundColor: Colors.white10,
+                disabledForegroundColor: Colors.white24,
+                elevation: enabled ? 3 : 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text(amount.toString(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+            ),
+          );
+        })),
+        const SizedBox(height: 5),
+        TextButton(
+          onPressed: _myTurn && !forcedOpen ? _passBid : null,
+          child: Text(forcedOpen ? 'طلب إجباري عليك: 7' : 'تمرير',
+            style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+        ),
       ]),
     );
   }
@@ -774,62 +771,59 @@ class _TableScreenState extends State<TableScreen> {
     final bid = _state['bid'] as Map?;
     final bidderSeat = (bid?['seat'] as num?)?.toInt() ?? -1;
     final isMyChoice = _myTurn && bidderSeat == _mySeat;
+    final amount = bid?['amount']?.toString() ?? '';
     return Container(
-      margin: const EdgeInsets.fromLTRB(12, 2, 12, 6),
-      padding: const EdgeInsets.all(11),
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(12, 13, 12, 12),
       decoration: BoxDecoration(
-        color: kPanel,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kGold.withOpacity(.45), width: 1.3),
+        color: const Color(0xF0181918),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFFFD34F), width: 1.3),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.55), blurRadius: 16, offset: const Offset(0, 7))],
       ),
-      child: Column(children: [
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(
-          isMyChoice
-            ? 'رسا عليك الطلب ${bid?['amount'] ?? ''} — اختر لون الحكم'
-            : 'رسا الطلب ${bid?['amount'] ?? ''} على ${_playerName(bidderSeat)} • بانتظار اختيار الحكم',
+          isMyChoice ? 'رسا عليك الطلب ' + amount + ' — اختر لون الطرنيب'
+            : 'رسا الطلب ' + amount + ' على ' + _playerName(bidderSeat),
           textAlign: TextAlign.center,
-          style: const TextStyle(color: kGold, fontSize: 12, fontWeight: FontWeight.bold),
+          style: const TextStyle(color: Color(0xFFFFD34F), fontSize: 13, fontWeight: FontWeight.w900),
         ),
         if (isMyChoice) ...[
-          const SizedBox(height: 9),
-          Row(
-            children: _suits.map((suit) => Expanded(child: Padding(
+          const SizedBox(height: 12),
+          Row(children: _suits.map((suit) {
+            final selected = _selectedSuit == suit;
+            final red = suit == 'HEARTS' || suit == 'DIAMONDS';
+            final color = red ? const Color(0xFFE34848) : const Color(0xFFF3F3F3);
+            return Expanded(child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3),
               child: InkWell(
-                onTap: () => setState(() => _selectedSuit = suit),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
+                onTap: () { _feedback(); setState(() => _selectedSuit = suit); },
+                borderRadius: BorderRadius.circular(12),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 140),
+                  padding: const EdgeInsets.symmetric(vertical: 9),
                   decoration: BoxDecoration(
-                    color: _selectedSuit == suit ? kGold : Colors.black.withOpacity(.2),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: _selectedSuit == suit ? kGold : Colors.white24),
+                    color: selected ? const Color(0xFFFFC928) : const Color(0xFF2B2C2A),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: selected ? const Color(0xFFFFE68A) : Colors.white24, width: selected ? 2 : 1),
+                    boxShadow: selected ? [const BoxShadow(color: Color(0x55FFC928), blurRadius: 9)] : const [],
                   ),
                   child: Column(children: [
-                    Text(_symbols[suit]!, style: TextStyle(
-                      fontSize: 22,
-                      color: _selectedSuit == suit ? kInk :
-                        (suit == 'HEARTS' || suit == 'DIAMONDS' ? Colors.redAccent : Colors.white),
-                    )),
-                    Text(_suitNames[suit]!, style: TextStyle(
-                      fontSize: 9,
-                      color: _selectedSuit == suit ? kInk : Colors.white70,
-                    )),
+                    Text(_symbols[suit]!, style: TextStyle(fontSize: 26, color: selected ? const Color(0xFF211A08) : color, fontWeight: FontWeight.w900)),
+                    Text(_suitNames[suit]!, style: TextStyle(fontSize: 9, color: selected ? const Color(0xFF211A08) : Colors.white70)),
                   ]),
                 ),
               ),
-            ))).toList(),
-          ),
-          const SizedBox(height: 9),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _confirmTrumpSuit,
-              style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
-              child: const Text('تأكيد الحكم وبدء اللعب'),
-            ),
-          ),
-        ],
+            ));
+          }).toList()),
+          const SizedBox(height: 10),
+          SizedBox(width: double.infinity, child: ElevatedButton(
+            onPressed: _confirmTrumpSuit,
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC928), foregroundColor: const Color(0xFF211A08)),
+            child: const Text('تأكيد الحكم وبدء اللعب', style: TextStyle(fontWeight: FontWeight.bold)),
+          )),
+        ] else
+          const Padding(padding: EdgeInsets.only(top: 8), child: Text('بانتظار اختيار لون الطرنيب', style: TextStyle(color: Colors.white60, fontSize: 11))),
       ]),
     );
   }
