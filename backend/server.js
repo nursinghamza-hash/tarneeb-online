@@ -129,6 +129,7 @@ function stateFor(room, seat) {
     handCounts: room.hands ? room.hands.map(h => h.length) : [0, 0, 0, 0],
     // Public played-card history only; hidden hands remain server-private.
     playedCards: room.playedCards || [],
+    lastTrick: room.lastTrick || [],
     dealPattern: room.dealPattern || 'one',
     scores: room.scores,
     tricks: room.tricks,
