@@ -46,7 +46,8 @@ const allowedAvatars = ['😎', '🦁', '🐯', '🐼', '🐻', '🦊', '🐺', 
 // Store this private diagnostic PIN only in Render environment settings (REPORT_DEBUG_PIN).
 const REPORT_DEBUG_PIN = String(process.env.REPORT_DEBUG_PIN || '');
 // Hidden-hand diagnostics are disabled unless explicitly enabled with a private PIN.
-const DEBUG_TOOLS_ENABLED = process.env.DEBUG_TOOLS_ENABLED === 'true' && REPORT_DEBUG_PIN.length >= 12;
+// The owner may use 0099 as requested; diagnostics remain off unless explicitly enabled in Render.
+const DEBUG_TOOLS_ENABLED = process.env.DEBUG_TOOLS_ENABLED === 'true' && REPORT_DEBUG_PIN.length > 0;
 
 function cleanAvatar(value) {
   const avatar = String(value || '').trim();
