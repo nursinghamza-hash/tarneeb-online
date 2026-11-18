@@ -1052,59 +1052,151 @@ class _TableScreenState extends State<TableScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: const Color(0xFF071A18),
+        backgroundColor: const Color(0xFF151515),
         body: SafeArea(
           child: Column(children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 5, 10, 2),
+            Container(
+              height: 51,
+              padding: const EdgeInsets.symmetric(horizontal: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xEE111111),
+                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(.10))),
+              ),
               child: Row(children: [
-                IconButton(onPressed: _openSettings, icon: const Icon(Icons.menu_rounded, color: Colors.white)),
+                IconButton(
+                  onPressed: _openSettings,
+                  icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 25),
+                  tooltip: 'القائمة',
+                ),
+                IconButton(
+                  onPressed: _openReportDialog,
+                  icon: const Icon(Icons.flag_outlined, color: Colors.white70, size: 21),
+                  tooltip: 'إبلاغ',
+                ),
                 Expanded(child: InkWell(
                   onTap: _copyCode,
-                  child: Column(children: [
-                    Text('طاولة ${widget.roomCode}  ⧉', style: const TextStyle(color: kGold, fontWeight: FontWeight.bold, fontSize: 13)),
-                    Text('الهدف $_target • ${_scores[0]} - ${_scores[1]}', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Text('طرنيب • ' + widget.roomCode,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
+                    Text('الهدف ' + _target.toString() + ' • ' + _scores[0].toString() + ' - ' + _scores[1].toString(),
+                      style: const TextStyle(color: Colors.white54, fontSize: 10)),
                   ]),
                 )),
-                if (_status == 'playing' && (_phase == 'playing' || _phase == 'bidding'))
+                if (_status == 'playing' && ['playing', 'bidding', 'trump_selection'].contains(_phase))
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: _secondsLeft <= 5 ? Colors.red.withOpacity(.2) : kGold.withOpacity(.15), borderRadius: BorderRadius.circular(20)),
-                    child: Text('$_secondsLeft ث', style: TextStyle(color: _secondsLeft <= 5 ? Colors.redAccent : kGold, fontWeight: FontWeight.bold)),
+                    margin: const EdgeInsets.only(left: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: _secondsLeft <= 5 ? const Color(0x553D1010) : const Color(0x332A2412),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _secondsLeft <= 5 ? Colors.redAccent : const Color(0x66FFD34F)),
+                    ),
+                    child: Text(_secondsLeft.toString() + ' ث',
+                      style: TextStyle(color: _secondsLeft <= 5 ? Colors.redAccent : const Color(0xFFFFD34F), fontWeight: FontWeight.w900)),
                   ),
-                IconButton(onPressed: _openReportDialog, tooltip: 'إبلاغ', icon: const Icon(Icons.flag_outlined, color: Colors.white70)),
-                IconButton(onPressed: _openSettings, icon: const Icon(Icons.more_horiz, color: Colors.white70)),
+                IconButton(onPressed: _copyCode, icon: const Icon(Icons.copy_rounded, color: Color(0xFFFFD34F), size: 19)),
               ]),
             ),
             if (_disconnected)
-              Container(width: double.infinity, color: Colors.orange.shade900, padding: const EdgeInsets.all(5),
-                child: const Text('الاتصال منقطع — نحاول إعادة الاتصال بالطاولة...', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 11))),
-            Expanded(child: _centerTable()),
-            _waitingOrResult(),
-            if (_phase == 'playing' && _status == 'playing')
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(children: [
-                  Text('لنا: ${_tricks[_myTeam]}', style: const TextStyle(color: kGold, fontSize: 11)),
-                  const Spacer(),
-                  Text(
-                    bid == null
-                      ? 'الطلب'
-                      : (bid['symbol'] == null
-                        ? 'الطلب ${bid['amount']} • اختيار الحكم'
-                        : 'الطلب ${bid['amount']} ${bid['symbol']}'),
-                    style: const TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
-                  const Spacer(),
-                  Text('لهم: ${_tricks[1 - _myTeam]}', style: const TextStyle(color: kGold, fontSize: 11)),
-                ]),
+              Container(
+                width: double.infinity,
+                color: Colors.orange.shade900,
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: const Text('الاتصال منقطع — نحاول إعادة الاتصال بالطاولة...',
+                  textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 10)),
               ),
-            _biddingPanel(),
-            _trumpSelectionPanel(),
-            _handArea(),
-            _reactionButton(),
-            if (_phase == 'playing' && _status == 'playing' && _myTurn)
-              const Padding(padding: EdgeInsets.only(bottom: 3), child: Text('دورك الآن — اضغط مرتين أو اسحب الورقة إلى الوسط', style: TextStyle(color: kGold, fontSize: 10, fontWeight: FontWeight.bold))),
+            Expanded(
+              child: Stack(children: [
+                Positioned.fill(child: _centerTable()),
+                if (_status == 'waiting' || _phase == 'cutting' || _phase == 'round_result' || _status == 'finished')
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: _waitingOrResult(),
+                    ),
+                  )
+                else if (_phase == 'bidding')
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 305),
+                      child: _biddingPanel(),
+                    ),
+                  )
+                else if (_phase == 'trump_selection')
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: _trumpSelectionPanel(),
+                    ),
+                  ),
+                if (_status == 'playing' && ['playing', 'trick_resolving'].contains(_phase))
+                  Positioned(
+                    left: 12, right: 12, bottom: 7,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(.72),
+                        borderRadius: BorderRadius.circular(11),
+                        border: Border.all(color: Colors.white.withOpacity(.08)),
+                      ),
+                      child: Row(children: [
+                        Text('لنا: ' + _tricks[_myTeam].toString(),
+                          style: const TextStyle(color: Color(0xFFFFD34F), fontSize: 11, fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        Text(
+                          bid == null ? 'الطلب لم يُحسم بعد'
+                            : 'الطلب ' + bid['amount'].toString() + (bid['symbol'] == null ? ' • اختيار الحكم' : ' ' + bid['symbol'].toString()),
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                        ),
+                        const Spacer(),
+                        Text('لهم: ' + _tricks[1 - _myTeam].toString(),
+                          style: const TextStyle(color: Color(0xFFFFD34F), fontSize: 11, fontWeight: FontWeight.bold)),
+                      ]),
+                    ),
+                  ),
+              ]),
+            ),
+            if (_hand.isNotEmpty && _status == 'playing') _handArea(),
+            Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xF0101110),
+                border: Border(top: BorderSide(color: Colors.white.withOpacity(.07))),
+              ),
+              child: Row(children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF34443B),
+                    border: Border.all(color: const Color(0xFFFFC928), width: 1.5),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(_playerAvatar(_mySeat), style: const TextStyle(fontSize: 21)),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(widget.playerName, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text(_myTurn && _status == 'playing' ? 'دورك الآن' : 'متصل بالطاولة',
+                    style: TextStyle(color: _myTurn && _status == 'playing' ? const Color(0xFFFFD34F) : Colors.white38, fontSize: 9)),
+                ])),
+                InkWell(
+                  onTap: _openReactions,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: 42, height: 36,
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(.07), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white12)),
+                    child: const Icon(Icons.emoji_emotions_outlined, color: Color(0xFFFFD34F), size: 21),
+                  ),
+                ),
+              ]),
+            ),
           ]),
         ),
       ),
