@@ -12,6 +12,8 @@ class PlayingCardWidget extends StatelessWidget {
   final bool isLegal;
   final VoidCallback? onTap;
   final VoidCallback? onDoubleTap;
+  final double? cardWidth;
+  final double? cardHeight;
 
   const PlayingCardWidget({
     super.key,
@@ -25,6 +27,8 @@ class PlayingCardWidget extends StatelessWidget {
     this.isLegal = true,
     this.onTap,
     this.onDoubleTap,
+    this.cardWidth,
+    this.cardHeight,
   });
 
   @override
@@ -33,11 +37,13 @@ class PlayingCardWidget extends StatelessWidget {
         ? const Color(0xFFC51E2B)
         : const Color(0xFF17191D);
 
-    final double width = isMini ? 29 : (isCompact ? 42 : (isHand ? 64 : 62));
-    final double height = isMini ? 41 : (isCompact ? 64 : (isHand ? 102 : 90));
-    final double rankFont = isMini ? 8 : (isCompact ? 10 : (isHand ? 17 : 15));
-    final double suitFont = isMini ? 8 : (isCompact ? 10 : (isHand ? 15 : 13));
-    final double centerFont = isMini ? 14 : (isCompact ? 18 : (isHand ? 34 : 30));
+    final double width = cardWidth ?? (isMini ? 29 : (isCompact ? 42 : (isHand ? 64 : 62)));
+    final double height = cardHeight ?? (isMini ? 41 : (isCompact ? 64 : (isHand ? 102 : 90)));
+    final double baseWidth = isMini ? 29 : (isCompact ? 42 : (isHand ? 64 : 62));
+    final double scale = width / baseWidth;
+    final double rankFont = (isMini ? 8 : (isCompact ? 10 : (isHand ? 17 : 15))) * scale;
+    final double suitFont = (isMini ? 8 : (isCompact ? 10 : (isHand ? 15 : 13))) * scale;
+    final double centerFont = (isMini ? 14 : (isCompact ? 18 : (isHand ? 34 : 30))) * scale;
 
     Widget corner() => Column(
       mainAxisSize: MainAxisSize.min,
@@ -69,14 +75,14 @@ class PlayingCardWidget extends StatelessWidget {
       onDoubleTap: isPlayable && isLegal ? onDoubleTap : null,
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 120),
-        opacity: !isLegal ? .3 : 1,
+        opacity: !isLegal ? .56 : 1,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 120),
           width: width,
           height: height,
           decoration: BoxDecoration(
             color: const Color(0xFFFFFEFC),
-            borderRadius: BorderRadius.circular(isMini ? 4 : 7),
+            borderRadius: BorderRadius.circular(isMini ? 4 : width * .095),
             border: Border.all(
               color: isSelected
                   ? const Color(0xFFE2B94C)
@@ -108,10 +114,10 @@ class PlayingCardWidget extends StatelessWidget {
                     child: const Text('★ اقتراح', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
                   )),
                 ),
-              Positioned(left: 4, top: 4, child: corner()),
+              Positioned(left: width * .07, top: height * .045, child: corner()),
               Positioned(
-                right: 4,
-                bottom: 4,
+                right: width * .07,
+                bottom: height * .045,
                 child: RotatedBox(quarterTurns: 2, child: corner()),
               ),
               Center(
@@ -125,8 +131,8 @@ class PlayingCardWidget extends StatelessWidget {
                         ),
                       )
                     : Container(
-                        width: isHand ? 38 : 34,
-                        height: isHand ? 46 : 40,
+                        width: width * .60,
+                        height: height * .46,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: suitColor.withOpacity(.035),
@@ -151,7 +157,7 @@ class PlayingCardWidget extends StatelessWidget {
                         card.rankLabel,
                         style: TextStyle(
                           color: suitColor.withOpacity(.075),
-                          fontSize: isHand ? 44 : 38,
+                          fontSize: width * .68,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
