@@ -41,10 +41,15 @@ const suitMeta = {
   CLUBS: { symbol: '♣', name: 'سباتي' },
 };
 const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
+const allowedAvatars = ['😎', '🦁', '🐯', '🐼', '🐻', '🦊', '🐺', '👑', '🤠', '🥷', '🧑‍🚀', '🐸'];
 // Store this private diagnostic PIN only in Render environment settings (REPORT_DEBUG_PIN).
 const REPORT_DEBUG_PIN = String(process.env.REPORT_DEBUG_PIN || '');
 const DEBUG_TOOLS_ENABLED = process.env.DEBUG_TOOLS_ENABLED === 'true';
 
+function cleanAvatar(value) {
+  const avatar = String(value || '').trim();
+  return allowedAvatars.includes(avatar) ? avatar : '😎';
+}
 function roomCode() {
   let code;
   do { code = `TR-${crypto.randomInt(10000, 100000)}`; } while (rooms.has(code));
@@ -96,7 +101,7 @@ function clearTrickTimer(room) {
 }
 function publicPlayers(room) {
   return room.players.map((p, seat) => p ? ({
-    seat, name: p.name, connected: !!p.connected, ready: !!p.ready,
+    seat, name: p.name, avatar: cleanAvatar(p.avatar), connected: !!p.connected, ready: !!p.ready,
     isHost: p.token === room.hostToken, isBot: p.isBot === true,
   }) : null);
 }
@@ -435,7 +440,7 @@ function createRoom(socket, payload) {
     dealerSeat: crypto.randomInt(4), roundNumber: 0, winnerTeam: null,
     lastRound: null, rematchVotes: new Set(), turnTimer: null,
   };
-  room.players[0] = { id: socket.id, token, name: cleanName(payload.playerName), seat: 0, connected: true, ready: true };
+  room.players[0] = { id: socket.id, token, name: cleanName(payload.playerName), avatar: cleanAvatar(payload.avatar), seat: 0, connected: true, ready: true };
   if (room.aiPractice) {
     const botNames = { 1: 'الزعيم', 2: 'أبو شهاب', 3: 'العقيد' };
     for (const seat of [1, 2, 3]) {
@@ -443,6 +448,7 @@ function createRoom(socket, payload) {
         id: null,
         token: crypto.randomBytes(18).toString('hex'),
         name: botNames[seat],
+        avatar: seat === 1 ? '🦁' : seat === 2 ? '👑' : '🐼',
         seat,
         connected: true,
         ready: true,
@@ -472,11 +478,12 @@ function joinRoom(socket, payload) {
     room.players[seat].id = socket.id;
     room.players[seat].connected = true;
     room.players[seat].name = cleanName(payload.playerName || room.players[seat].name);
+    room.players[seat].avatar = cleanAvatar(payload.avatar || room.players[seat].avatar);
   } else {
     seat = room.players.findIndex(p => !p);
     if (seat < 0) return socket.emit('room_error', 'الطاولة مكتملة. إذا كنت لاعباً سابقاً استخدم رمز الاستعادة الخاص بك');
     const newToken = crypto.randomBytes(18).toString('hex');
-    room.players[seat] = { id: socket.id, token: newToken, name: cleanName(payload.playerName), seat, connected: true, ready: true };
+    room.players[seat] = { id: socket.id, token: newToken, name: cleanName(payload.playerName), avatar: cleanAvatar(payload.avatar), seat, connected: true, ready: true };
   }
   socket.join(code);
   socket.emit('room_joined', { roomCode: code, token: room.players[seat].token, seat });
