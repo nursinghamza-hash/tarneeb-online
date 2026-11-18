@@ -807,13 +807,39 @@ class _TableScreenState extends State<TableScreen> {
         (item) => (item as Map)['seat'] == seat,
         orElse: () => null,
       );
-      if (raw == null) return const SizedBox.shrink();
-      final item = Map<String, dynamic>.from(raw as Map);
-      return PlayingCardWidget(
-        card: _cardModel(item['card']),
-        cardWidth: 51,
-        cardHeight: 76,
-        isPlayable: false,
+      final isEmpty = raw == null;
+      final item = isEmpty ? null : Map<String, dynamic>.from(raw as Map);
+      final beginOffset = seat == northSeat
+          ? const Offset(0, -.32)
+          : seat == southSeat
+              ? const Offset(0, .32)
+              : seat == eastSeat
+                  ? const Offset(.32, 0)
+                  : const Offset(-.32, 0);
+      return AnimatedSwitcher(
+        duration: const Duration(milliseconds: 170),
+        reverseDuration: const Duration(milliseconds: 130),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween<Offset>(
+              begin: beginOffset,
+              end: Offset.zero,
+            ).animate(animation),
+            child: child,
+          ),
+        ),
+        child: isEmpty
+            ? SizedBox.shrink(key: ValueKey('empty-seat-$seat'))
+            : PlayingCardWidget(
+                key: ValueKey('trick-' + item!['card']['code'].toString()),
+                card: _cardModel(item['card']),
+                cardWidth: 51,
+                cardHeight: 76,
+                isPlayable: false,
+              ),
       );
     }
 
@@ -1148,7 +1174,7 @@ class _TableScreenState extends State<TableScreen> {
                     top: selected ? 0 : 3,
                     child: TweenAnimationBuilder<double>(
                       tween: _cardDealTweens.putIfAbsent('$roundNumber-${card.code}', () => Tween<double>(begin: 0, end: 1)),
-                      duration: Duration(milliseconds: 260 + layerIndex * 24),
+                      duration: Duration(milliseconds: 180 + layerIndex * 12),
                       curve: Curves.easeOutCubic,
                       builder: (context, progress, child) => Opacity(
                         opacity: progress,
