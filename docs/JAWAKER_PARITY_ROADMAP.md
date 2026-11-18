@@ -33,7 +33,7 @@ Reference: https://blog.jawaker.com/en/tarneeb-rules-en/
 - A persistent in-room round history records the contract, trump suit, trick counts, bid result, and before/after team scores.
 - Optional AI practice rooms fill the three other seats with bots named Al-Zaeem, Abu Shehab and Al-Aqeed; bots use a separate heuristic module for bidding and legal cooperative card play.
 - Intentionally biased dealing presets from the HTML mock-up (high-action / VIP advantage / minimum-HCP filtering) are not enabled in fair public rooms. The default server shuffle uses cryptographic Fisher–Yates; batch dealing and manual cut remain available. Normal friend rooms remain four-human rooms.
-- 0099 diagnostics are gated by server environment settings and restricted to the room host. Optional hand boost is developer-only and allowed only before the first card is played.
+- 0099 diagnostics are gated by server environment settings and restricted to the room host. They can reveal the other three hands, request a tactical card suggestion highlighted in green, and optionally boost the host's hand before the first card is played.
 - Regression tests cover table orientation, deal order, batch distribution, bidding order, forced opening, irreversible pass, follow-suit, trick winner, scoring and invalid inputs.
 - Pull request CI runs backend syntax/rules tests and Flutter analysis/Android build.
 
