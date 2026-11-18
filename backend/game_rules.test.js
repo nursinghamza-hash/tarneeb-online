@@ -113,6 +113,7 @@ test('failed normal bid deducts the bid and awards defenders their actual tricks
 test('Jawaker declared Kaboot scores 26 and failed Kaboot loses 16', () => {
   assert.deepEqual(scoreRound([10, 0], [13, 0], 0, 13), { scores: [36, 0], bidMet: true });
   assert.deepEqual(scoreRound([0, 0], [12, 1], 0, 13), { scores: [-16, 1], bidMet: false });
+  assert.deepEqual(scoreRound([0, 0], [0, 13], 0, 13), { scores: [-16, 13], bidMet: false });
 });
 
 test('custom house rule can score declared Kaboot as 16', () => {
@@ -128,6 +129,9 @@ test('custom house preset scores declared Kaboot 16 and unannounced sweep 14', (
   assert.deepEqual(scoreRound([0, 0], [13, 0], 0, 7, {
     declaredKabootPoints: 16, sweepPoints: 14,
   }), { scores: [14, 0], bidMet: true });
+  assert.deepEqual(scoreRound([0, 0], [0, 13], 0, 13, {
+    declaredKabootPoints: 16, sweepPoints: 14,
+  }), { scores: [-16, 13], bidMet: false });
 });
 
 test('an unannounced 13-trick sweep scores 16 points', () => {
