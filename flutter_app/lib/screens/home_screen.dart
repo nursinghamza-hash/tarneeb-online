@@ -18,7 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _name = TextEditingController();
   final _code = TextEditingController();
   final _server = TextEditingController();
-  int _target = 41;
+  int _target = 31;
   String _scoringPreset = 'house_16_14';
   bool _aiPractice = false;
   bool _busy = false;
