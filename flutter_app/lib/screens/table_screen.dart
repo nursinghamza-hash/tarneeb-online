@@ -480,7 +480,7 @@ class _TableScreenState extends State<TableScreen> {
     final avatar = _playerAvatar(seat);
     final count = seat < _counts.length ? _counts[seat] : 0;
     return SizedBox(
-      width: 76,
+      width: 70,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
           if (seat != _mySeat && (count as num) > 0)
@@ -528,7 +528,7 @@ class _TableScreenState extends State<TableScreen> {
         ]),
         const SizedBox(height: 3),
         Container(
-          constraints: const BoxConstraints(minWidth: 68, maxWidth: 76),
+          constraints: const BoxConstraints(minWidth: 64, maxWidth: 70),
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(.48),
@@ -633,11 +633,11 @@ class _TableScreenState extends State<TableScreen> {
     return LayoutBuilder(builder: (context, constraints) {
       final maxWidth = constraints.maxWidth;
       final maxHeight = constraints.maxHeight;
-      final boardWidth = math.min(maxWidth - 30, maxHeight * .84).clamp(240.0, 440.0).toDouble();
+      final boardWidth = math.min(maxWidth * .76, maxHeight * .84).clamp(230.0, 440.0).toDouble();
       final boardHeight = math.min(maxHeight * .91, boardWidth * 1.22).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
-      final boardTop = (maxHeight - boardHeight) / 2 + 8;
-      final centerWidth = math.min(boardWidth * .52, 185.0).toDouble();
+      final boardTop = (maxHeight - boardHeight) / 2 + 17;
+      final centerWidth = math.min(boardWidth * .50, 185.0).toDouble();
       final centerHeight = math.min(boardHeight * .43, 194.0).toDouble();
 
       return Container(
