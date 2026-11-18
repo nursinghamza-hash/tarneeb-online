@@ -188,7 +188,7 @@ class _TableScreenState extends State<TableScreen> {
       _playSound(GameSound.trick);
     } else if (playedByOther) {
       _playSound(GameSound.card);
-    } else if (newContractBid) {
+    } else if (newContractBid && (incomingBid['seat'] as num?)?.toInt() != _mySeat) {
       _playSound(GameSound.bid);
     } else if (incomingPhase == 'trump_selection' && previousPhase != 'trump_selection') {
       _playSound(GameSound.bid);
