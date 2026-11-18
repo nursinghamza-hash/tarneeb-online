@@ -11,20 +11,20 @@ class TarneebOnlineApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const gold = Color(0xFFE2BD68);
+    const gold = Color(0xFFFFC928);
     return MaterialApp(
       title: 'تحدي الطرنيب',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF071A18),
+        scaffoldBackgroundColor: const Color(0xFF151515),
         colorScheme: ColorScheme.fromSeed(
           seedColor: gold,
           brightness: Brightness.dark,
           primary: gold,
-          secondary: const Color(0xFF146047),
-          surface: const Color(0xFF12372F),
+          secondary: const Color(0xFF0C9B38),
+          surface: const Color(0xFF202020),
         ),
         fontFamily: 'Roboto',
         snackBarTheme: const SnackBarThemeData(
