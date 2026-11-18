@@ -19,8 +19,9 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 ### Table and cards
 - Server seats: 0 south, 1 east/right, 2 north/partner, 3 west/left. Teams are 0+2 versus 1+3.
 - Flutter rotates the table and trick-card positions around the local player so the player's own hand remains at the bottom from every seat.
+- The friend-room lobby presents the three other seats as partner choices before the host can start; the server validates the host and selected occupied seat.
 - Each hand is sorted by suit and rank, A (14) down to 2. Once trump is selected, trump cards move to the beginning.
-- Each player sees their own 13 cards. Normal game state never sends opponents' unplayed cards.
+- Each player sees their own 13 cards. Normal game state never sends opponents' unplayed cards. Opponents' remaining card counts are displayed as card-back fans.
 
 ### Dealing and bidding
 - Server uses cryptographic Fisher–Yates shuffle. It supports one-card-at-a-time dealing, optional 4-3-3-3 batches, and a manual cut phase.
@@ -67,6 +68,8 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 ## Remaining work and release gates
 
 - Improve AI card counting, signalling, difficulty levels and partnership strategy.
+- Replace the initial emoji avatars with a polished set of original illustrated profile portraits.
+- Tune card-face proportions, card backs, and deal/trick animations against screenshots from real target devices.
 - Complete richer card movement/deal/trick/round animations and custom sound effects.
 - Add persistent profiles, friends, clubs, tournaments, moderation, and robust reconnect-safe room persistence.
 - Test complete matches with four independent Socket.IO clients and on Android/iOS devices.
