@@ -41,6 +41,17 @@ const suitMeta = {
   CLUBS: { symbol: '♣', name: 'سباتي' },
 };
 const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
+const quickChatMessages = [
+  'العب طرنيب يا شريك! 🔥',
+  'إلي الأكلة لا تعلي ✋',
+  'كفو والله يا بطل 👑',
+  'كبوت بعون الله 🚀',
+];
+const botPartnerReplies = [
+  'أبشر بعزك يا شريك! 🔥',
+  'عيني ربك، الأكلة إلنا 👑',
+  'ركز بالطرنيب وإحنا قدها 💪',
+];
 // Store this private diagnostic PIN only in Render environment settings (REPORT_DEBUG_PIN).
 const REPORT_DEBUG_PIN = String(process.env.REPORT_DEBUG_PIN || '');
 const DEBUG_TOOLS_ENABLED = process.env.DEBUG_TOOLS_ENABLED === 'true';
@@ -694,6 +705,34 @@ io.on('connection', socket => {
     const emoji = String(payload?.emoji || '');
     if (room && player && reactions.includes(emoji)) {
       io.to(room.code).emit('reaction', { seat: player.seat, emoji, at: Date.now() });
+    }
+  });
+  socket.on('quick_chat', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    const message = String(payload?.message || '');
+    if (!room || !player || !quickChatMessages.includes(message)) return;
+
+    io.to(room.code).emit('quick_chat_message', {
+      seat: player.seat,
+      name: player.name,
+      message,
+      at: Date.now(),
+    });
+
+    // In practice mode, the AI partner gives a short contextual acknowledgement.
+    const partnerSeat = (player.seat + 2) % 4;
+    if (room.aiPractice && room.players[partnerSeat]?.isBot) {
+      const reply = botPartnerReplies[crypto.randomInt(botPartnerReplies.length)];
+      setTimeout(() => {
+        if (!rooms.has(room.code) || room.status === 'finished') return;
+        io.to(room.code).emit('quick_chat_message', {
+          seat: partnerSeat,
+          name: room.players[partnerSeat].name,
+          message: reply,
+          at: Date.now(),
+        });
+      }, 900);
     }
   });
   socket.on('next_round', () => {
