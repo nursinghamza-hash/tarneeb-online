@@ -24,7 +24,6 @@ class TableScreen extends StatefulWidget {
 }
 
 class _TableScreenState extends State<TableScreen> {
-  static final Tween<double> _cardDealTween = Tween<double>(begin: 0, end: 1);
   static const List<String> _emojis = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
   static const List<String> _suits = ['HEARTS', 'SPADES', 'DIAMONDS', 'CLUBS'];
   static const Map<String, String> _symbols = {
@@ -38,6 +37,7 @@ class _TableScreenState extends State<TableScreen> {
   List<dynamic> _players = [];
   List<int> _rematchVotes = [];
   final Map<int, String> _reactions = {};
+  final Map<String, Tween<double>> _cardDealTweens = {};
   String _selectedSuit = 'HEARTS';
   int _secondsLeft = 15;
   int _customCutAt = 18;
@@ -140,6 +140,11 @@ class _TableScreenState extends State<TableScreen> {
   void _onGameState(dynamic data) {
     if (!mounted) return;
     final incoming = Map<String, dynamic>.from(data as Map);
+    final previousRoundNumber = (_state['roundNumber'] as num?)?.toInt();
+    final incomingRoundNumber = (incoming['roundNumber'] as num?)?.toInt();
+    if (incomingRoundNumber != null && incomingRoundNumber != previousRoundNumber) {
+      _cardDealTweens.clear();
+    }
     final oldTrick = (_state['currentTrick'] as List?) ?? const [];
     final newTrick = (incoming['currentTrick'] as List?) ?? const [];
     final hasNewPlayedCard = newTrick.length > oldTrick.length;
@@ -965,7 +970,7 @@ class _TableScreenState extends State<TableScreen> {
                     right: index * step,
                     top: selected ? 0 : 3,
                     child: TweenAnimationBuilder<double>(
-                      tween: _cardDealTween,
+                      tween: _cardDealTweens.putIfAbsent('$roundNumber-${card.code}', () => Tween<double>(begin: 0, end: 1)),
                       duration: Duration(milliseconds: 260 + layerIndex * 24),
                       curve: Curves.easeOutCubic,
                       builder: (context, progress, child) => Opacity(
