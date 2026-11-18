@@ -24,6 +24,7 @@ class TableScreen extends StatefulWidget {
 }
 
 class _TableScreenState extends State<TableScreen> {
+  static final Tween<double> _cardDealTween = Tween<double>(begin: 0, end: 1);
   static const List<String> _emojis = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
   static const List<String> _suits = ['HEARTS', 'SPADES', 'DIAMONDS', 'CLUBS'];
   static const Map<String, String> _symbols = {
@@ -964,7 +965,7 @@ class _TableScreenState extends State<TableScreen> {
                     right: index * step,
                     top: selected ? 0 : 3,
                     child: TweenAnimationBuilder<double>(
-                      tween: Tween<double>(begin: 0, end: 1),
+                      tween: _cardDealTween,
                       duration: Duration(milliseconds: 260 + layerIndex * 24),
                       curve: Curves.easeOutCubic,
                       builder: (context, progress, child) => Opacity(
