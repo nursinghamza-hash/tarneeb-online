@@ -48,6 +48,7 @@ class _TableScreenState extends State<TableScreen> {
   String? _firstTappedCardCode;
   Timer? _cardTapTimer;
   bool _disconnected = false;
+  bool _playPending = false;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -105,7 +106,10 @@ class _TableScreenState extends State<TableScreen> {
       'token': widget.token,
     });
     s.onDisconnect((_) {
-      if (mounted) setState(() => _disconnected = true);
+      if (mounted) setState(() {
+        _disconnected = true;
+        _playPending = false;
+      });
     });
     s.onConnect((_) {
       if (_disconnected) {
@@ -201,6 +205,7 @@ class _TableScreenState extends State<TableScreen> {
       _playSound(GameSound.deal);
     }
     setState(() {
+      _playPending = false;
       if (incomingPhase == 'trump_selection' && previousPhase != 'trump_selection') {
         _selectedSuit = 'HEARTS';
       }
@@ -397,14 +402,23 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _playCard(dynamic card) {
-    if (!_myTurn || _phase != 'playing' || !_isLegalCard(card)) return;
+    if (!_myTurn || _phase != 'playing' || !_isLegalCard(card) || _playPending) return;
+    if (!widget.socket.connected) {
+      _onNotice('الاتصال غير مستقر — انتظر عودة الاتصال قبل لعب الورقة');
+      return;
+    }
     _cardTapTimer?.cancel();
     _firstTappedCardCode = null;
     _playSound(GameSound.card);
     if (_vibrationEnabled) HapticFeedback.mediumImpact();
-    setState(() => _selectedCardCode = null);
+    setState(() {
+      _selectedCardCode = null;
+      _playPending = true;
+    });
     widget.socket.emit('play_card', {
-      'roomCode': widget.roomCode, 'cardCode': card['code'].toString(),
+      'roomCode': widget.roomCode,
+      'cardCode': card['code'].toString(),
+      'turnVersion': (_state['turnVersion'] as num?)?.toInt() ?? 0,
     });
   }
   void _sendEmoji(String emoji) {
