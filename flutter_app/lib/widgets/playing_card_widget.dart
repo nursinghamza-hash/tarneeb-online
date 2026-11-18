@@ -149,21 +149,6 @@ class PlayingCardWidget extends StatelessWidget {
                         ),
                       ),
               ),
-              if (!isMini && card.rank >= 11)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: Center(
-                      child: Text(
-                        card.rankLabel,
-                        style: TextStyle(
-                          color: suitColor.withOpacity(.075),
-                          fontSize: width * .68,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
