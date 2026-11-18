@@ -33,8 +33,17 @@ jobs:
         run: |
           for attempt in 1 2 3 4 5 6; do
             echo "Render health attempt $attempt/6"
-            if curl --fail --silent --show-error --max-time 20 https://tarneeb-online-server.onrender.com/health; then
-              echo
+            response="$(curl --fail --silent --show-error --max-time 20 https://tarneeb-online-server.onrender.com/health || true)"
+            if [ -n "$response" ]; then
+              echo "$response"
+              deployed_commit="$(printf '%s' "$response" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(JSON.parse(s).version||'unknown')}catch(_){process.stdout.write('unknown')}})")"
+              echo "Render deployed commit: $deployed_commit"
+              echo "GitHub commit under validation: $GITHUB_SHA"
+              if [ "$deployed_commit" = "$GITHUB_SHA" ]; then
+                echo "Render is running the exact commit under validation."
+              else
+                echo "Render is healthy but is not yet confirmed on the exact commit."
+              fi
               exit 0
             fi
             sleep 10
