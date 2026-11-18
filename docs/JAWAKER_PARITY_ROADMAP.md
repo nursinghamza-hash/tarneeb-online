@@ -14,14 +14,15 @@ Reference: https://blog.jawaker.com/en/tarneeb-rules-en/
 
 The supplied HTML/brief uses a custom score system of +16 for a successful declared 13 and +14 for an unannounced sweep. The app keeps these as separate presets instead of silently mixing the two rule sets.
 
-## Implemented on `feature/jawaker-tarneeb-parity-v1`
+## Implemented on `main`
 
 ### Table and cards
 - Server seats: 0 south, 1 east/right, 2 north/partner, 3 west/left. Teams are 0+2 versus 1+3.
 - Flutter rotates the table and trick-card positions around the local player so the player's own hand remains at the bottom from every seat.
-- The friend-room lobby presents the three other seats as partner choices before the host can start; the server validates the host and selected occupied seat.
+- The friend-room lobby presents the three other seats as partner choices before the host can start; the server validates the host, selected occupied seat, and connected status.
 - Each hand is sorted by suit and rank, A (14) down to 2. Once trump is selected, trump cards move to the beginning.
 - Each player sees their own 13 cards. Normal game state never sends opponents' unplayed cards. Opponents' remaining card counts are displayed as card-back fans.
+- The score cross maps each physical seat to its team score, so the two partners always display the same score. A contract badge appears at the bidder's avatar: gold while unresolved, green when the contract target is reached, and red when the completed round fails.
 
 ### Dealing and bidding
 - Server uses cryptographic Fisher–Yates shuffle. It supports one-card-at-a-time dealing, optional 4-3-3-3 batches, and a manual cut phase.
@@ -33,7 +34,7 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 - The bidder then leads the first trick.
 
 ### Trick play and score
-- Server-authoritative validation enforces following suit whenever the player has the led suit.
+- Server-authoritative validation enforces following suit whenever the player has the led suit. The Flutter hand dims only off-suit cards while the player holds the led suit; when void in that suit, every card remains playable.
 - If the player is void in the led suit, any card may be played. The winner is the highest trump if a trump was played; otherwise, the highest card in the led suit.
 - The fourth card remains visible briefly so all clients can see the completed trick before resolution. The trick winner leads the next trick.
 - Match targets are 31 (default), 41, and 61.
@@ -51,9 +52,9 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 ### 0099 development diagnostics
 - Emoji reactions remain available during play.
 - At the user's request, the card tracker, round-history panel, and quick-chat message controls/bubbles were removed from the mobile interface and the quick-chat socket event was removed from the server.
-- 0099 development diagnostics are disabled unless both Render variables are configured: `REPORT_DEBUG_PIN=0099` and `DEBUG_TOOLS_ENABLED=true`.
-- The 0099 console is restricted to the room host. It can reveal the other seats' hands, request a tactical card suggestion (highlighted in green), and optionally boost the host hand before the first card is played.
-- Do not enable 0099 on public competitive rooms.
+- 0099 is a host-only toggle. It reveals all four hands, including the host's own hand, in a compact live panel; entering the code a second time hides the panel and returns to normal play.
+- `REPORT_DEBUG_PIN` can override the default code. `DEBUG_TOOLS_ENABLED=false` disables the diagnostic mode. The server only includes hidden hands in the state sent to the host seat after the toggle is enabled.
+- Do not use 0099 during public competitive play.
 
 ### Dealing fairness
 - The public default uses a cryptographically shuffled deck. The HTML mock-up's high-action/VIP advantage/minimum-HCP filters deliberately bias hand strength; these are not enabled in public rooms so the server cannot secretly favor a player.
@@ -62,7 +63,7 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 ## Validation
 
 - Backend CI runs syntax checks and Node regression tests for rules, dealing, auction/trump selection, scoring and AI choices.
-- Android CI runs Flutter dependency resolution, Flutter source analysis, Android release APK build and artifact upload.
+- Android CI runs backend syntax and regression tests, Flutter dependency resolution, Android release APK compilation and artifact upload.
 - These checks do not replace end-to-end multiplayer tests with four independent clients or real-device testing.
 
 ## Remaining work and release gates
@@ -70,7 +71,7 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 - Improve AI card counting, signalling, difficulty levels and partnership strategy.
 - Replace the initial emoji avatars with a polished set of original illustrated profile portraits.
 - Tune card-face proportions, card backs, and deal/trick animations against screenshots from real target devices.
-- Complete richer card movement/deal/trick/round animations and custom sound effects.
+- Complete richer card movement/deal/trick/round animations and tune the sound mix on real Android/iOS devices.
 - Add persistent profiles, friends, clubs, tournaments, moderation, and robust reconnect-safe room persistence.
 - Test complete matches with four independent Socket.IO clients and on Android/iOS devices.
 - Confirm Render is running the exact backend commit used by the APK.
