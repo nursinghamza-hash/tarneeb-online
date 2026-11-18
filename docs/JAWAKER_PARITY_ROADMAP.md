@@ -36,8 +36,8 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 - If the player is void in the led suit, any card may be played. The winner is the highest trump if a trump was played; otherwise, the highest card in the led suit.
 - The fourth card remains visible briefly so all clients can see the completed trick before resolution. The trick winner leads the next trick.
 - Match targets are 31 (default), 41, and 61.
-- Default scoring in the new-room screen is the supplied custom preset: successful declared 13 = +16; unannounced sweep = +14; failed declared 13 = -16.
-- Jawaker scoring is separately selectable: successful declared 13 = +26; unannounced sweep = +16; failed declared 13 = -16.
+- Default scoring in the new-room screen is the Jawaker preset: successful declared 13 = +26; unannounced sweep = +16; failed declared 13 = -16.
+- The supplied custom preset remains separately selectable: successful declared 13 = +16; unannounced sweep = +14; failed declared 13 = -16.
 - If declared 13 fails, the defending team receives its actual trick count only; no unannounced-sweep bonus is stacked onto the failed declared 13.
 
 ### AI practice
