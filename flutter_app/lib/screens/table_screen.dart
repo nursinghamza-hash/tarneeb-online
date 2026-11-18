@@ -697,10 +697,10 @@ class _TableScreenState extends State<TableScreen> {
     return LayoutBuilder(builder: (context, constraints) {
       final maxWidth = constraints.maxWidth;
       final maxHeight = constraints.maxHeight;
-      final boardWidth = math.min(maxWidth * .72, maxHeight * .84).clamp(230.0, 440.0).toDouble();
+      final boardWidth = math.min(maxWidth * .72, maxHeight * .84).clamp(230.0, 560.0).toDouble();
       final boardHeight = math.min(maxHeight * .91, boardWidth * 1.30).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
-      final boardTop = (maxHeight - boardHeight) / 2 + 17;
+      final boardTop = (maxHeight - boardHeight - 8).clamp(8.0, maxHeight).toDouble();
       final centerWidth = math.min(boardWidth * .50, 185.0).toDouble();
       final centerHeight = math.min(boardHeight * .43, 194.0).toDouble();
 
@@ -1234,8 +1234,8 @@ class _TableScreenState extends State<TableScreen> {
             ),
             if (_hand.isNotEmpty && _status == 'playing') _handArea(),
             Container(
-              height: 82,
-              padding: const EdgeInsets.fromLTRB(12, 7, 12, 7),
+              height: 104,
+              padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
               decoration: BoxDecoration(
                 color: const Color(0xF0101110),
                 border: Border(top: BorderSide(color: Colors.white.withOpacity(.09))),
