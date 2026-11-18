@@ -426,6 +426,9 @@ function createRoom(socket, payload) {
     code, targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
     scoringPreset: payload.scoringPreset === 'house_16_14' ? 'house_16_14' : 'jawaker',
     partnerSeat: 2, dealMode: 'random', aiPractice: payload.aiPractice === true, reports: [],
+    // Initialize all four seats before assigning the host or AI players.
+    players: Array(4).fill(null),
+    hostToken: token,
     tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
     dealPattern: 'one', lastTrick: [], trickTimer: null, debugEnabledSeats: new Set(),
     status: 'waiting', turnSeat: 0, bidTurn: null, bid: null, passed: [],
