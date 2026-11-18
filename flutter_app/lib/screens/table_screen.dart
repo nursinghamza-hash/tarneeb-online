@@ -1216,95 +1216,195 @@ class _TableScreenState extends State<TableScreen> {
 
   Widget _debugHandsOverlay() {
     return LayoutBuilder(builder: (context, constraints) {
-      final rows = _debugHands;
+      final width = constraints.maxWidth;
+      final height = constraints.maxHeight;
+      final handsBySeat = <int, Map<String, dynamic>>{};
+      for (final raw in _debugHands) {
+        if (raw is Map) {
+          final item = Map<String, dynamic>.from(raw);
+          final seat = (item['seat'] as num?)?.toInt();
+          if (seat != null) handsBySeat[seat] = item;
+        }
+      }
+
+      final northSeat = _partnerOfSeat(_mySeat);
+      final sideSeats = [1, 2, 3, 0]
+          .map((offset) => (_mySeat + offset) % 4)
+          .where((seat) => seat != _mySeat && seat != northSeat)
+          .toList();
+      final eastSeat = sideSeats.isNotEmpty ? sideSeats.first : ((_mySeat + 1) % 4);
+      final westSeat = sideSeats.length > 1 ? sideSeats.last : ((_mySeat + 3) % 4);
+
+      List<dynamic> sortedCards(int seat) {
+        final cards = ((handsBySeat[seat]?['cards'] as List?) ?? const []).toList();
+        const order = {'HEARTS': 0, 'SPADES': 1, 'DIAMONDS': 2, 'CLUBS': 3};
+        cards.sort((a, b) {
+          final first = Map<String, dynamic>.from(a as Map);
+          final second = Map<String, dynamic>.from(b as Map);
+          final suitCompare = (order[first['suit'].toString().toUpperCase()] ?? 9)
+              .compareTo(order[second['suit'].toString().toUpperCase()] ?? 9);
+          return suitCompare != 0
+              ? suitCompare
+              : (second['rank'] as num).compareTo(first['rank'] as num);
+        });
+        return cards;
+      }
+
+      Widget playerLabel(int seat, {bool centered = false}) {
+        final item = handsBySeat[seat];
+        final name = item?['name']?.toString() ?? _playerName(seat);
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: const Color(0xE91A1A1A),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0x88FFFFFF), width: .8),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(_playerAvatar(seat), style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 4),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: centered ? 100 : 62),
+              child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w700)),
+            ),
+          ]),
+        );
+      }
+
+      Widget horizontalHand(int seat, {required double cardWidth, required double cardHeight}) {
+        final cards = sortedCards(seat);
+        if (cards.isEmpty) return const SizedBox.shrink();
+        final step = cards.length <= 1
+            ? 0.0
+            : math.min(cardWidth - 7, (width - 28 - cardWidth) / (cards.length - 1));
+        final totalWidth = cardWidth + step * (cards.length - 1);
+        return SizedBox(
+          width: totalWidth,
+          height: cardHeight,
+          child: Stack(clipBehavior: Clip.none, children: [
+            for (var i = 0; i < cards.length; i++)
+              Positioned(
+                left: i * step,
+                top: 0,
+                child: PlayingCardWidget(
+                  key: ValueKey('debug-$seat-${(cards[i] as Map)['code']}'),
+                  card: _cardModel(cards[i]),
+                  cardWidth: cardWidth,
+                  cardHeight: cardHeight,
+                  isPlayable: false,
+                ),
+              ),
+          ]),
+        );
+      }
+
+      Widget verticalHand(int seat) {
+        final cards = sortedCards(seat);
+        if (cards.isEmpty) return const SizedBox.shrink();
+        const cardWidth = 42.0;
+        const cardHeight = 62.0;
+        final step = cards.length <= 1
+            ? 0.0
+            : math.min(29.0, (height - 245 - cardHeight) / (cards.length - 1));
+        return SizedBox(
+          width: cardWidth,
+          height: cardHeight + step * (cards.length - 1),
+          child: Stack(clipBehavior: Clip.none, children: [
+            for (var i = 0; i < cards.length; i++)
+              Positioned(
+                top: i * step,
+                left: 0,
+                child: PlayingCardWidget(
+                  key: ValueKey('debug-$seat-${(cards[i] as Map)['code']}'),
+                  card: _cardModel(cards[i]),
+                  cardWidth: cardWidth,
+                  cardHeight: cardHeight,
+                  isPlayable: false,
+                ),
+              ),
+          ]),
+        );
+      }
+
+      final topCards = sortedCards(northSeat);
+      final leftCards = sortedCards(westSeat);
+      final rightCards = sortedCards(eastSeat);
       return Container(
         width: double.infinity,
         height: double.infinity,
         margin: const EdgeInsets.all(5),
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
         decoration: BoxDecoration(
           color: const Color(0xE8090A09),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(.16), width: 1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(.18), width: 1),
         ),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Row(children: [
-            const Icon(Icons.visibility_rounded, color: Color(0xFFFFC928), size: 18),
-            const SizedBox(width: 6),
-            const Expanded(child: Text('أوراق اللاعبين',
-              style: TextStyle(color: Color(0xFFFFD34F), fontWeight: FontWeight.w900, fontSize: 12))),
-            TextButton.icon(
+        child: Stack(clipBehavior: Clip.hardEdge, children: [
+          Positioned(
+            top: 7, left: 9,
+            child: TextButton.icon(
               onPressed: _hideDebugHands,
               style: TextButton.styleFrom(
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 backgroundColor: const Color(0xFF8E2028),
                 visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
               ),
-              icon: const Icon(Icons.visibility_off_rounded, size: 14),
+              icon: const Icon(Icons.visibility_off_rounded, size: 15),
               label: const Text('إخفاء فوراً', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
             ),
-          ]),
-          const Divider(height: 8, color: Colors.white24),
-          if (rows.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(12),
-              child: Text('لا توجد أوراق موزعة حالياً', style: TextStyle(color: Colors.white70, fontSize: 11)),
-            )
-          else
-            Flexible(
-              child: SingleChildScrollView(
-                child: Column(mainAxisSize: MainAxisSize.min, children: rows.map((raw) {
-                  final item = Map<String, dynamic>.from(raw as Map);
-                  final seat = (item['seat'] as num?)?.toInt() ?? 0;
-                  final cards = ((item['cards'] as List?) ?? const []).toList();
-                  const order = {'HEARTS': 0, 'SPADES': 1, 'DIAMONDS': 2, 'CLUBS': 3};
-                  cards.sort((a, b) {
-                    final first = Map<String, dynamic>.from(a as Map);
-                    final second = Map<String, dynamic>.from(b as Map);
-                    final suitCompare = (order[first['suit'].toString().toUpperCase()] ?? 9)
-                        .compareTo(order[second['suit'].toString().toUpperCase()] ?? 9);
-                    return suitCompare != 0
-                        ? suitCompare
-                        : (second['rank'] as num).compareTo(first['rank'] as num);
-                  });
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(children: [
-                      SizedBox(
-                        width: 62,
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          Text(_playerAvatar(seat), style: const TextStyle(fontSize: 18)),
-                          Text(item['name']?.toString() ?? _playerName(seat),
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white70, fontSize: 8)),
-                        ]),
-                      ),
-                      Expanded(
-                        child: SizedBox(
-                          height: 38,
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(children: cards.map((card) => Padding(
-                              padding: const EdgeInsets.only(right: 2),
-                              child: PlayingCardWidget(
-                                card: _cardModel(card),
-                                cardWidth: 23,
-                                cardHeight: 35,
-                                isPlayable: false,
-                              ),
-                            )).toList()),
-                          ),
-                        ),
-                      ),
-                    ]),
-                  );
-                }).toList()),
-              ),
+          ),
+          const Positioned(
+            top: 15, right: 12,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('أوراق اللاعبين',
+                style: TextStyle(color: Color(0xFFFFD34F), fontWeight: FontWeight.w900, fontSize: 13)),
+              SizedBox(width: 6),
+              Icon(Icons.visibility_rounded, color: Color(0xFFFFC928), size: 18),
+            ]),
+          ),
+          if (handsBySeat.isEmpty)
+            const Center(child: Text('لا توجد أوراق موزعة حالياً',
+              style: TextStyle(color: Colors.white70, fontSize: 12)))
+          else ...[
+            Positioned(
+              top: 49, left: 0, right: 0,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                playerLabel(northSeat, centered: true),
+                const SizedBox(height: 5),
+                Center(child: Directionality(
+                  textDirection: TextDirection.ltr,
+                  child: horizontalHand(northSeat, cardWidth: 43, cardHeight: 64),
+                )),
+              ]),
             ),
-          const SizedBox(height: 3),
-          const Text('عرض خاص على هذا الجهاز فقط',
-            textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 8)),
+            Positioned(
+              left: 8, top: height * .31,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                playerLabel(westSeat),
+                const SizedBox(height: 5),
+                verticalHand(westSeat),
+              ]),
+            ),
+            Positioned(
+              right: 8, top: height * .31,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                playerLabel(eastSeat),
+                const SizedBox(height: 5),
+                verticalHand(eastSeat),
+              ]),
+            ),
+            if (topCards.isEmpty && leftCards.isEmpty && rightCards.isEmpty)
+              const Center(child: Text('لا توجد أوراق للاعبين الآخرين',
+                style: TextStyle(color: Colors.white70, fontSize: 11))),
+          ],
+          Positioned(
+            bottom: 7, left: 0, right: 0,
+            child: Center(child: Text('أوراقك تظهر أمامك بالأسفل',
+              style: TextStyle(color: Colors.white.withOpacity(.55), fontSize: 9))),
+          ),
         ]),
       );
     });
