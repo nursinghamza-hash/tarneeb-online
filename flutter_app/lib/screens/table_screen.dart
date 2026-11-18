@@ -583,6 +583,39 @@ class _TableScreenState extends State<TableScreen> {
     ),
   );
 
+  Widget _lastTrickPreview() {
+    final cards = (_state['lastTrick'] as List?) ?? const [];
+    if (cards.isEmpty) return const SizedBox.shrink();
+
+    Widget miniAt(int index) {
+      if (index >= cards.length) return const SizedBox.shrink();
+      final item = Map<String, dynamic>.from(cards[index] as Map);
+      return PlayingCardWidget(
+        card: _cardModel(item['card']),
+        cardWidth: 25,
+        cardHeight: 37,
+        isPlayable: false,
+      );
+    }
+
+    return Container(
+      width: 78,
+      height: 77,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(.26),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withOpacity(.07)),
+      ),
+      child: Stack(children: [
+        Positioned(top: 0, left: 26, child: miniAt(0)),
+        Positioned(left: 1, top: 20, child: miniAt(1)),
+        Positioned(right: 1, top: 20, child: miniAt(2)),
+        Positioned(bottom: 0, left: 26, child: miniAt(3)),
+      ]),
+    );
+  }
+
   Widget _scoreboard() {
     final otherTeam = 1 - _myTeam;
     final otherScore = _scores.length > otherTeam ? _scores[otherTeam] : 0;
@@ -649,6 +682,7 @@ class _TableScreenState extends State<TableScreen> {
         ),
         child: Stack(clipBehavior: Clip.none, children: [
           Positioned(left: 9, top: 4, child: _scoreboard()),
+          Positioned(right: 9, top: 4, child: _lastTrickPreview()),
           Positioned(
             left: boardLeft, top: boardTop, width: boardWidth, height: boardHeight,
             child: Container(
