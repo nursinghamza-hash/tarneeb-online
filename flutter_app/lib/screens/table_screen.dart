@@ -793,12 +793,12 @@ class _TableScreenState extends State<TableScreen> {
     return LayoutBuilder(builder: (context, constraints) {
       final maxWidth = constraints.maxWidth;
       final maxHeight = constraints.maxHeight;
-      final boardWidth = math.min(maxWidth * .92, maxHeight * .92).clamp(250.0, 680.0).toDouble();
-      final boardHeight = math.min(maxHeight * .97, boardWidth * 1.25).toDouble();
+      final boardWidth = math.min(maxWidth * .94, 680.0).clamp(245.0, 680.0).toDouble();
+      final boardTop = 52.0;
+      final boardHeight = math.min(maxHeight - boardTop - 8, boardWidth * 1.62).clamp(210.0, 900.0).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
-      final boardTop = ((maxHeight - boardHeight) / 2).clamp(0.0, maxHeight).toDouble();
-      final centerWidth = math.min(boardWidth * .55, 220.0).toDouble();
-      final centerHeight = math.min(boardHeight * .44, 220.0).toDouble();
+      final centerWidth = math.min(boardWidth * .58, 225.0).toDouble();
+      final centerHeight = math.min(boardHeight * .42, 220.0).toDouble();
 
       return Container(
         decoration: const BoxDecoration(
@@ -1150,6 +1150,17 @@ class _TableScreenState extends State<TableScreen> {
             const SizedBox(width: 6),
             const Expanded(child: Text('أوراق اللاعبين',
               style: TextStyle(color: Color(0xFFFFD34F), fontWeight: FontWeight.w900, fontSize: 12))),
+            TextButton.icon(
+              onPressed: _hideDebugHands,
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                backgroundColor: const Color(0xFF8E2028),
+                visualDensity: VisualDensity.compact,
+              ),
+              icon: const Icon(Icons.visibility_off_rounded, size: 14),
+              label: const Text('إخفاء فوراً', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
           ]),
           const Divider(height: 8, color: Colors.white24),
           if (rows.isEmpty)
@@ -1501,8 +1512,8 @@ class _TableScreenState extends State<TableScreen> {
             ),
             if (_hand.isNotEmpty && _status == 'playing') _handArea(),
             Container(
-              height: 104,
-              padding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+              height: 82,
+              padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
               decoration: BoxDecoration(
                 color: const Color(0xF0101110),
                 border: Border(top: BorderSide(color: Colors.white.withOpacity(.09))),
@@ -1511,11 +1522,11 @@ class _TableScreenState extends State<TableScreen> {
                 textDirection: TextDirection.ltr,
                 children: [
                   SizedBox(
-                    width: 116,
+                    width: 112,
                     child: Row(children: [
                       Column(mainAxisSize: MainAxisSize.min, children: [
                         Container(
-                          width: 48, height: 48,
+                          width: 44, height: 44,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: const Color(0xFF252525),
@@ -1523,7 +1534,7 @@ class _TableScreenState extends State<TableScreen> {
                             boxShadow: const [BoxShadow(color: Color(0x55FFC928), blurRadius: 9)],
                           ),
                           alignment: Alignment.center,
-                          child: Text(_playerAvatar(_mySeat), style: const TextStyle(fontSize: 27)),
+                          child: Text(_playerAvatar(_mySeat), style: const TextStyle(fontSize: 24)),
                         ),
                         const SizedBox(height: 2),
                         SizedBox(
@@ -1548,20 +1559,17 @@ class _TableScreenState extends State<TableScreen> {
                   Expanded(
                     child: Directionality(
                       textDirection: TextDirection.rtl,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _footerInfoBar(
-                            label: 'أكلات',
-                            value: _tricks.length > _myTeam ? _tricks[_myTeam].toString() : '0',
-                          ),
-                          const SizedBox(height: 5),
-                          _footerInfoBar(
-                            label: 'طلب',
-                            value: bid == null ? '—' : bid['amount'].toString() + (bid['symbol'] == null ? '' : ' ' + bid['symbol'].toString()),
-                          ),
-                        ],
-                      ),
+                      child: Row(children: [
+                        Expanded(child: _footerInfoBar(
+                          label: 'لطشاتنا',
+                          value: _tricks.length > _myTeam ? _tricks[_myTeam].toString() : '0',
+                        )),
+                        const SizedBox(width: 6),
+                        Expanded(child: _footerInfoBar(
+                          label: 'طلبنا',
+                          value: bid == null ? '—' : bid['amount'].toString() + ' ' + (_symbols[(bid['suit'] ?? '').toString().toUpperCase()] ?? ''),
+                        )),
+                      ]),
                     ),
                   ),
                 ],
