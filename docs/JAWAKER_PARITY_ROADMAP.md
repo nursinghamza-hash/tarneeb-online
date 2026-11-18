@@ -4,7 +4,7 @@
 
 This is an independent Tarneeb implementation. Jawaker is a gameplay and UX reference only; the project does not copy Jawaker source code, private APIs, protected artwork, or branding.
 
-The supplied `tarneeb_global_pro.html` was inspected as a local browser mock-up/feature specification. It describes the table layout, auction, suit selection, card tracker, score history, quick-chat phrases, settings and 0099 development console. It is not the Jawaker Android APK. The separate APK mentioned as a Drive file was not available for direct inspection in this session.
+The supplied `tarneeb_global_pro.html` was inspected as a local browser mock-up/feature specification. It describes the table layout, auction, suit selection, card tracker, score history, quick-chat phrases, settings and private development console. It is not the Jawaker Android APK. The separate APK mentioned as a Drive file was not available for direct inspection in this session.
 
 ## Rules reference
 
