@@ -516,7 +516,6 @@ function beginCutPhase(room) {
 function startGame(room, player) {
   if (!player || player.token !== room.hostToken || room.status !== 'waiting') return;
   if (room.players.some(p => !p)) return io.to(player.id).emit('room_error', 'تحتاج الطاولة إلى 4 لاعبين لبدء اللعب');
-  if (room.partnerSeat !== 2) room.partnerSeat = 2;
   room.scores = [0, 0];
   room.roundNumber = 1;
   beginNextDeal(room);
@@ -534,12 +533,13 @@ io.on('connection', socket => {
     const player = room && playerFor(room, socket);
     const partnerSeat = Number(payload?.partnerSeat);
     if (!room || !player || player.token !== room.hostToken || room.status !== 'waiting') return;
-    // Standard partnership seats are opposite: host at 0, partner at 2.
-    if (partnerSeat !== 2 || !room.players[2]) {
-      io.to(player.id).emit('notice', 'الشريك يكون في المقعد المقابل (2)');
+    // The host chooses one of the three other occupied seats as their partner.
+    // The remaining two players form the opposing team.
+    if (![1, 2, 3].includes(partnerSeat) || !room.players[partnerSeat]) {
+      io.to(player.id).emit('notice', 'اختر لاعباً موجوداً على الطاولة ليكون شريكك');
       return;
     }
-    room.partnerSeat = 2;
+    room.partnerSeat = partnerSeat;
     sendRoom(room);
     broadcastState(room);
   });
