@@ -53,6 +53,7 @@ class _TableScreenState extends State<TableScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _debugHandsVisible = false;
   List<dynamic> _debugHands = [];
+  String _debugCode = '0099';
   Timer? _clock;
 
   int get _mySeat => widget.mySeat;
@@ -150,6 +151,8 @@ class _TableScreenState extends State<TableScreen> {
       _state['partnerSeat'] = map['partnerSeat'];
       _state['dealMode'] = map['dealMode'];
       _state['aiPractice'] = map['aiPractice'] == true;
+      _state['paused'] = map['paused'] == true;
+      _state['pausedBy'] = map['pausedBy'];
     });
   }
 
@@ -295,6 +298,7 @@ class _TableScreenState extends State<TableScreen> {
                 final message = controller.text.trim();
                 if (message.isEmpty) return;
                 Navigator.pop(ctx);
+                if (message == '0099') _debugCode = message;
                 widget.socket.emit('submit_report', {'roomCode': widget.roomCode, 'message': message});
               },
               style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
@@ -312,6 +316,11 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _startGame() => widget.socket.emit('start_game');
+  void _togglePause() => widget.socket.emit('toggle_pause', {'roomCode': widget.roomCode});
+  void _hideDebugHands() {
+    if (!_debugHandsVisible) return;
+    widget.socket.emit('submit_report', {'roomCode': widget.roomCode, 'message': _debugCode});
+  }
   void _selectPartner(int seat) {
     if (!_isHost || _status != 'waiting' || seat < 1 || seat > 3 || seat >= _players.length || _players[seat] == null) return;
     _feedback();
@@ -444,6 +453,13 @@ class _TableScreenState extends State<TableScreen> {
               value: _vibrationEnabled, activeColor: kGold, title: const Text('الاهتزاز', style: TextStyle(color: Colors.white)),
               onChanged: (v) { setSheet(() => _vibrationEnabled = v); setState(() => _vibrationEnabled = v); },
             ),
+            if (_isHost && _status == 'playing')
+              ListTile(
+                leading: Icon(_state['paused'] == true ? Icons.play_circle_fill_rounded : Icons.pause_circle_filled_rounded, color: const Color(0xFFFFC928)),
+                title: Text(_state['paused'] == true ? 'استئناف اللعبة' : 'إيقاف اللعبة مؤقتاً', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                subtitle: const Text('يتوقف الوقت عند جميع اللاعبين', style: TextStyle(color: Colors.white54, fontSize: 10)),
+                onTap: () { Navigator.pop(ctx); _togglePause(); },
+              ),
             ListTile(
               leading: const Icon(Icons.exit_to_app, color: Colors.redAccent),
               title: const Text('مغادرة الطاولة', style: TextStyle(color: Colors.white)),
@@ -503,6 +519,8 @@ class _TableScreenState extends State<TableScreen> {
                 ? const Color(0xFF22C55E)
                 : const Color(0xFFFFC928);
 
+    final suit = (bid['suit'] ?? '').toString().toUpperCase();
+    final symbol = _symbols[suit] ?? '';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
@@ -511,7 +529,7 @@ class _TableScreenState extends State<TableScreen> {
         border: Border.all(color: Colors.white.withOpacity(.75), width: .8),
         boxShadow: [BoxShadow(color: contractColor.withOpacity(.35), blurRadius: 5)],
       ),
-      child: Text('طلب $amount',
+      child: Text('طلب $amount $symbol',
         style: const TextStyle(color: Colors.black, fontSize: 9, fontWeight: FontWeight.w900)),
     );
   }
@@ -545,24 +563,39 @@ class _TableScreenState extends State<TableScreen> {
                   ),
                 ),
               ),
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 220),
-            width: 50,
-            height: 50,
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: const Color(0xFF202020),
-              border: Border.all(color: active ? const Color(0xFFFFC928) : Colors.white70, width: active ? 3 : 1.5),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(.4), blurRadius: 8, offset: const Offset(0, 3)),
-                if (active) const BoxShadow(color: Color(0x66FFC928), blurRadius: 12),
-              ],
-            ),
-            child: CircleAvatar(
-              backgroundColor: const Color(0xFF34443B),
-              child: Text(avatar.isEmpty ? fallback : avatar, style: const TextStyle(fontSize: 25)),
-            ),
+          SizedBox(
+            width: 58, height: 58,
+            child: Stack(alignment: Alignment.center, children: [
+              if (active)
+                SizedBox(
+                  width: 57, height: 57,
+                  child: CircularProgressIndicator(
+                    value: _state['paused'] == true ? 1 : (_secondsLeft / 15).clamp(0.0, 1.0),
+                    strokeWidth: 3.2,
+                    backgroundColor: Colors.white.withOpacity(.14),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      _secondsLeft <= 5 && _state['paused'] != true ? const Color(0xFFFF3B30) : const Color(0xFFFFC928),
+                    ),
+                  ),
+                ),
+              Container(
+                width: 48, height: 48,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF202020),
+                  border: Border.all(color: active ? const Color(0xFFFFD34F) : Colors.white70, width: active ? 1.8 : 1.2),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(.4), blurRadius: 8, offset: const Offset(0, 3)),
+                    if (active) const BoxShadow(color: Color(0x66FFC928), blurRadius: 12),
+                  ],
+                ),
+                child: CircleAvatar(
+                  backgroundColor: const Color(0xFF34443B),
+                  child: Text(avatar.isEmpty ? fallback : avatar, style: const TextStyle(fontSize: 24)),
+                ),
+              ),
+            ]),
           ),
           if (!_connected(seat))
             const Positioned(right: -3, top: -2, child: Icon(Icons.wifi_off, color: Colors.orangeAccent, size: 14)),
@@ -586,9 +619,16 @@ class _TableScreenState extends State<TableScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-              decoration: BoxDecoration(color: Colors.black.withOpacity(.8), borderRadius: BorderRadius.circular(7)),
-              child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(.82),
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(color: Colors.white.withOpacity(.09)),
+              ),
+              child: Text(
+                '${_tricks.length > _teamForSeat(seat) ? _tricks[_teamForSeat(seat)].toString() : '0'} لطشات',
+                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
+              ),
             ),
           ),
       ]),
