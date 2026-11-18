@@ -39,7 +39,6 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 - Default scoring in the new-room screen is the supplied custom preset: successful declared 13 = +16; unannounced sweep = +14; failed declared 13 = -16.
 - Jawaker scoring is separately selectable: successful declared 13 = +26; unannounced sweep = +16; failed declared 13 = -16.
 - If declared 13 fails, the defending team receives its actual trick count only; no unannounced-sweep bonus is stacked onto the failed declared 13.
-- Completed round history records the bid, trump, trick counts, success/failure, and score before and after the round.
 
 ### AI practice
 - A practice room fills seats 1–3 with أبو شهاب (partner), الزعيم (right opponent), and العقيد (left opponent).
@@ -48,7 +47,7 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 - A player can restart an AI practice match without waiting for the three bots to vote again.
 - Current AI is a first heuristic version, not an expert/grandmaster engine. It still needs simulation and human gameplay testing.
 
-### Card memory, quick chat and 0099
+### 0099 development diagnostics
 - Emoji reactions remain available during play.
 - At the user's request, the card tracker, round-history panel, and quick-chat message controls/bubbles were removed from the mobile interface and the quick-chat socket event was removed from the server.
 - 0099 development diagnostics are disabled unless both Render variables are configured: `REPORT_DEBUG_PIN=0099` and `DEBUG_TOOLS_ENABLED=true`.
