@@ -480,7 +480,7 @@ class _TableScreenState extends State<TableScreen> {
     final avatar = _playerAvatar(seat);
     final count = seat < _counts.length ? _counts[seat] : 0;
     return SizedBox(
-      width: 92,
+      width: 76,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
           if (seat != _mySeat && (count as num) > 0)
@@ -504,8 +504,8 @@ class _TableScreenState extends State<TableScreen> {
               ),
           AnimatedContainer(
             duration: const Duration(milliseconds: 220),
-            width: 54,
-            height: 54,
+            width: 50,
+            height: 50,
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -518,7 +518,7 @@ class _TableScreenState extends State<TableScreen> {
             ),
             child: CircleAvatar(
               backgroundColor: const Color(0xFF34443B),
-              child: Text(avatar.isEmpty ? fallback : avatar, style: const TextStyle(fontSize: 27)),
+              child: Text(avatar.isEmpty ? fallback : avatar, style: const TextStyle(fontSize: 25)),
             ),
           ),
           if (!_connected(seat))
@@ -528,7 +528,7 @@ class _TableScreenState extends State<TableScreen> {
         ]),
         const SizedBox(height: 3),
         Container(
-          constraints: const BoxConstraints(minWidth: 72, maxWidth: 92),
+          constraints: const BoxConstraints(minWidth: 68, maxWidth: 76),
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
             color: Colors.black.withOpacity(.48),
@@ -637,7 +637,7 @@ class _TableScreenState extends State<TableScreen> {
       final boardHeight = math.min(maxHeight * .91, boardWidth * 1.22).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
       final boardTop = (maxHeight - boardHeight) / 2 + 8;
-      final centerWidth = math.min(boardWidth * .68, 235.0).toDouble();
+      final centerWidth = math.min(boardWidth * .52, 185.0).toDouble();
       final centerHeight = math.min(boardHeight * .43, 194.0).toDouble();
 
       return Container(
