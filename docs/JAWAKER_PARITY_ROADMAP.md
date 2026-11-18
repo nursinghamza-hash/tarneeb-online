@@ -42,16 +42,15 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 - Completed round history records the bid, trump, trick counts, success/failure, and score before and after the round.
 
 ### AI practice
-- A practice room can fill seats 1–3 with أبو شهاب (partner), الزعيم (right opponent), and العقيد (left opponent).
+- A practice room fills seats 1–3 with أبو شهاب (partner), الزعيم (right opponent), and العقيد (left opponent).
+- Practice mode is the default selection on the home screen; selecting it creates a bot-filled table and the backend starts the first deal automatically, without waiting for a manual start action or three additional human players.
 - Bots use heuristic bidding, avoid unnecessary overbidding against their partner, follow suit, and use cooperative card-selection rules.
-- The bot partner can respond to the approved quick-chat phrases.
 - A player can restart an AI practice match without waiting for the three bots to vote again.
 - Current AI is a first heuristic version, not an expert/grandmaster engine. It still needs simulation and human gameplay testing.
 
 ### Card memory, quick chat and 0099
-- Card tracker shows the 52 cards by suit, marking the player's known cards and cards already played.
-- Round history shows each completed contract and score changes.
-- Quick-chat messages are selected from four preset phrases. They appear temporarily above the sending seat; the AI partner may send a preset reply.
+- Emoji reactions remain available during play.
+- At the user's request, the card tracker, round-history panel, and quick-chat message controls/bubbles were removed from the mobile interface and the quick-chat socket event was removed from the server.
 - 0099 development diagnostics are disabled unless both Render variables are configured: `REPORT_DEBUG_PIN=0099` and `DEBUG_TOOLS_ENABLED=true`.
 - The 0099 console is restricted to the room host. It can reveal the other seats' hands, request a tactical card suggestion (highlighted in green), and optionally boost the host hand before the first card is played.
 - Do not enable 0099 on public competitive rooms.
