@@ -53,7 +53,7 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 - Emoji reactions remain available during play.
 - At the user's request, the card tracker, round-history panel, and quick-chat message controls/bubbles were removed from the mobile interface and the quick-chat socket event was removed from the server.
 - 0099 is a host-only toggle. It reveals all four hands, including the host's own hand, in a compact live panel; entering the code a second time hides the panel and returns to normal play.
-- `REPORT_DEBUG_PIN` can override the default code. `DEBUG_TOOLS_ENABLED=false` disables the diagnostic mode. The server only includes hidden hands in the state sent to the host seat after the toggle is enabled.
+- Diagnostics are disabled by default. Enable them in Render with `DEBUG_TOOLS_ENABLED=true` and `REPORT_DEBUG_PIN=0099` (or another private PIN). Setting `DEBUG_TOOLS_ENABLED=false` disables them. The server only includes hidden hands in the state sent to the host seat after that host toggles the feature on.
 - Do not use 0099 during public competitive play.
 
 ### Dealing fairness
