@@ -619,6 +619,7 @@ class _TableScreenState extends State<TableScreen> {
 
   Widget _scoreboard() {
     final ownScore = _scores.length > _myTeam ? _scores[_myTeam] : 0;
+    final ownScore = _scores.length > _myTeam ? _scores[_myTeam] : 0;
     final otherTeam = 1 - _myTeam;
     final otherScore = _scores.length > otherTeam ? _scores[otherTeam] : 0;
     final ownTricks = _tricks.length > _myTeam ? _tricks[_myTeam] : 0;
