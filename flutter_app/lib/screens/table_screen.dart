@@ -274,7 +274,7 @@ class _TableScreenState extends State<TableScreen> {
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           backgroundColor: kPanel,
-          title: const Text('إبلاغ / وضع الفحص 0099', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
+          title: const Text('الإبلاغ / أدوات الفحص', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
           content: TextField(
             controller: controller,
             autofocus: true,
@@ -282,7 +282,7 @@ class _TableScreenState extends State<TableScreen> {
             maxLength: 500,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'اكتب مشكلتك أو أدخل 0099 لإظهار / إخفاء أوراق اللاعبين',
+              hintText: 'اكتب مشكلتك أو أدخل رمز الفحص لإظهار / إخفاء الأوراق',
               hintStyle: const TextStyle(color: Colors.white54),
               filled: true, fillColor: Colors.black26,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -1107,12 +1107,12 @@ class _TableScreenState extends State<TableScreen> {
           Row(children: [
             const Icon(Icons.visibility_rounded, color: Color(0xFFFFC928), size: 18),
             const SizedBox(width: 6),
-            const Expanded(child: Text('وضع 0099 • أوراق اللاعبين الأربعة',
+            const Expanded(child: Text('وضع الفحص • أوراق اللاعبين الأربعة',
               style: TextStyle(color: Color(0xFFFFD34F), fontWeight: FontWeight.w900, fontSize: 12))),
             TextButton(
               onPressed: _openReportDialog,
               style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 5), minimumSize: const Size(0, 28)),
-              child: const Text('0099 للإخفاء', style: TextStyle(color: Colors.white70, fontSize: 9)),
+              child: const Text('رمز الفحص للإخفاء', style: TextStyle(color: Colors.white70, fontSize: 9)),
             ),
           ]),
           const Divider(height: 8, color: Colors.white24),
@@ -1173,7 +1173,7 @@ class _TableScreenState extends State<TableScreen> {
               ),
             ),
           const SizedBox(height: 3),
-          const Text('أدخل 0099 من زر الإبلاغ مرة أخرى لإرجاع الطاولة للوضع الطبيعي',
+          const Text('أدخل رمز الفحص مرة أخرى من زر الإبلاغ لإرجاع الطاولة للوضع الطبيعي',
             textAlign: TextAlign.center, style: TextStyle(color: Colors.white54, fontSize: 8)),
         ]),
       );
