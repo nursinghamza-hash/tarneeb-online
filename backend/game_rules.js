@@ -158,7 +158,9 @@ function scoreRound(scores, tricks, bidTeam, bidAmount, options = {}) {
       result[bidTeam] += declaredKabootPoints;
     } else {
       result[bidTeam] -= failedKabootPenalty;
-      result[otherTeam] += allTricksTeam === otherTeam ? sweepPoints : tricks[otherTeam];
+      // When a declared 13 fails, defenders score their actual tricks.
+      // The unannounced sweep bonus applies only when the bid was below 13.
+      result[otherTeam] += tricks[otherTeam];
     }
   } else if (allTricksTeam !== null) {
     result[allTricksTeam] += sweepPoints;
