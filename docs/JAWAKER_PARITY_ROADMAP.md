@@ -49,12 +49,12 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 - A player can restart an AI practice match without waiting for the three bots to vote again.
 - Current AI is a first heuristic version, not an expert/grandmaster engine. It still needs simulation and human gameplay testing.
 
-### 0099 development diagnostics
+### Private diagnostics
 - Emoji reactions remain available during play.
 - At the user's request, the card tracker, round-history panel, and quick-chat message controls/bubbles were removed from the mobile interface and the quick-chat socket event was removed from the server.
-- 0099 is a host-only toggle. It reveals all four hands, including the host's own hand, in a compact live panel; entering the code a second time hides the panel and returns to normal play.
-- Diagnostics are disabled by default. Enable them in Render with `DEBUG_TOOLS_ENABLED=true` and `REPORT_DEBUG_PIN=0099` (or another private PIN). Setting `DEBUG_TOOLS_ENABLED=false` disables them. The server only includes hidden hands in the state sent to the host seat after that host toggles the feature on.
-- Do not use 0099 during public competitive play.
+- A private host-only PIN toggles the four hands, including the host's own hand, in a compact live panel; entering the PIN a second time hides the panel. The PIN is never displayed in the app UI.
+- Diagnostics are disabled by default. Enable them in the hosting dashboard with `DEBUG_TOOLS_ENABLED=true` and a private value in `REPORT_DEBUG_PIN`. Setting `DEBUG_TOOLS_ENABLED=false` disables them. The server only includes hidden hands in the state sent to the host seat after that host toggles the feature on.
+- Do not enable private diagnostics during public competitive play.
 
 ### Dealing fairness
 - The public default uses a cryptographically shuffled deck. The HTML mock-up's high-action/VIP advantage/minimum-HCP filters deliberately bias hand strength; these are not enabled in public rooms so the server cannot secretly favor a player.
@@ -71,6 +71,7 @@ The supplied HTML/brief uses a custom score system of +16 for a successful decla
 - Improve AI card counting, signalling, difficulty levels and partnership strategy.
 - Replace the initial emoji avatars with a polished set of original illustrated profile portraits.
 - Tune card-face proportions, card backs, and deal/trick animations against screenshots from real target devices.
+- Validate the enlarged Messi-photo table background and card/player contrast on real phones and tablets.
 - Complete richer card movement/deal/trick/round animations and tune the sound mix on real Android/iOS devices.
 - Add persistent profiles, friends, clubs, tournaments, moderation, and robust reconnect-safe room persistence.
 - Test complete matches with four independent Socket.IO clients and on Android/iOS devices.

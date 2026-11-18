@@ -20,13 +20,13 @@ function makeRoom() {
   return { players, hands, debugEnabledSeats: new Set() };
 }
 
-test('0099 diagnostic is hidden until explicitly toggled on for a seat', () => {
+test('private PIN diagnostic is hidden until explicitly toggled on for a seat', () => {
   const room = makeRoom();
   assert.equal(isDebugSeatEnabled(room, 0), false);
   assert.equal(getDebugHandsForSeat(room, 0), null);
 });
 
-test('0099 toggle on exposes all four hands, including the host hand', () => {
+test('private PIN toggle on exposes all four hands, including the host hand', () => {
   const room = makeRoom();
   assert.equal(toggleDebugSeat(room, 0), true);
   assert.equal(isDebugSeatEnabled(room, 0), true);
@@ -38,7 +38,7 @@ test('0099 toggle on exposes all four hands, including the host hand', () => {
   assert.equal(hands[0].cards[0].code, '0-0');
 });
 
-test('0099 toggle off hides every hand from the host state again', () => {
+test('private PIN toggle off hides every hand from the host state again', () => {
   const room = makeRoom();
   assert.equal(toggleDebugSeat(room, 0), true);
   assert.equal(toggleDebugSeat(room, 0), false);

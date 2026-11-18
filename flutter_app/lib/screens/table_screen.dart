@@ -274,7 +274,7 @@ class _TableScreenState extends State<TableScreen> {
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           backgroundColor: kPanel,
-          title: const Text('الإبلاغ / أدوات الفحص', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
+          title: const Text('إبلاغ عن مشكلة', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
           content: TextField(
             controller: controller,
             autofocus: true,
@@ -282,7 +282,7 @@ class _TableScreenState extends State<TableScreen> {
             maxLength: 500,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'اكتب مشكلتك أو أدخل 0099 لإظهار / إخفاء أوراق اللاعبين الأربعة',
+              hintText: 'اكتب تفاصيل المشكلة هنا...',
               hintStyle: const TextStyle(color: Colors.white54),
               filled: true, fillColor: Colors.black26,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -753,12 +753,12 @@ class _TableScreenState extends State<TableScreen> {
     return LayoutBuilder(builder: (context, constraints) {
       final maxWidth = constraints.maxWidth;
       final maxHeight = constraints.maxHeight;
-      final boardWidth = math.min(maxWidth * .72, maxHeight * .84).clamp(230.0, 560.0).toDouble();
-      final boardHeight = math.min(maxHeight * .91, boardWidth * 1.30).toDouble();
+      final boardWidth = math.min(maxWidth * .92, maxHeight * .92).clamp(250.0, 680.0).toDouble();
+      final boardHeight = math.min(maxHeight * .97, boardWidth * 1.25).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
-      final boardTop = (maxHeight - boardHeight - 8).clamp(8.0, maxHeight).toDouble();
-      final centerWidth = math.min(boardWidth * .50, 185.0).toDouble();
-      final centerHeight = math.min(boardHeight * .43, 194.0).toDouble();
+      final boardTop = ((maxHeight - boardHeight) / 2).clamp(0.0, maxHeight).toDouble();
+      final centerWidth = math.min(boardWidth * .55, 220.0).toDouble();
+      final centerHeight = math.min(boardHeight * .44, 220.0).toDouble();
 
       return Container(
         decoration: const BoxDecoration(
@@ -775,10 +775,11 @@ class _TableScreenState extends State<TableScreen> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(38),
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  colors: [Color(0xFF20B94B), Color(0xFF0C9B38), Color(0xFF08732F)],
-                  stops: [0, .48, 1],
+                color: const Color(0xFF090909),
+                image: const DecorationImage(
+                  image: AssetImage('assets/messi_table_bg.jpg'),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(Color(0x16000000), BlendMode.darken),
                 ),
                 border: Border.all(color: const Color(0xFFBFC8BD), width: 4),
                 boxShadow: [
@@ -1107,13 +1108,8 @@ class _TableScreenState extends State<TableScreen> {
           Row(children: [
             const Icon(Icons.visibility_rounded, color: Color(0xFFFFC928), size: 18),
             const SizedBox(width: 6),
-            const Expanded(child: Text('وضع الفحص • أوراق اللاعبين الأربعة',
+            const Expanded(child: Text('أوراق اللاعبين',
               style: TextStyle(color: Color(0xFFFFD34F), fontWeight: FontWeight.w900, fontSize: 12))),
-            TextButton(
-              onPressed: _openReportDialog,
-              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 5), minimumSize: const Size(0, 28)),
-              child: const Text('رمز الفحص للإخفاء', style: TextStyle(color: Colors.white70, fontSize: 9)),
-            ),
           ]),
           const Divider(height: 8, color: Colors.white24),
           if (rows.isEmpty)
