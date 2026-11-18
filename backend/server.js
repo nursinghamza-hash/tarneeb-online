@@ -188,6 +188,7 @@ function startRound(room, preparedDeck = null, dealPattern = 'one') {
   // The first card goes to the dealer's right; direction is counterclockwise.
   room.hands = dealHands(deck, room.dealerSeat, dealPattern).map(sorted);
   room.dealPattern = dealPattern;
+  room.pendingBotTrumpSuit = null;
   room.playedCards = [];
   room.lastTrick = [];
   room.tricks = [0, 0];
@@ -218,6 +219,42 @@ function nextBidder(room, fromSeat) {
   }
   return null;
 }
+function startTrumpSelection(room) {
+  if (!room.bid) return;
+  clearTurnTimer(room);
+  room.phase = 'trump_selection';
+  room.turnSeat = room.bid.seat;
+  room.bidTurn = null;
+  room.deadline = null;
+
+  // Bots announce their chosen trump immediately after winning the auction.
+  if (room.players[room.bid.seat]?.isBot) {
+    const suit = SUITS.includes(room.pendingBotTrumpSuit) ? room.pendingBotTrumpSuit : SUITS[0];
+    room.bid.suit = suit;
+    room.bid.symbol = suitMeta[suit].symbol;
+    room.pendingBotTrumpSuit = null;
+    room.phase = 'playing';
+    startTurnTimer(room);
+  }
+
+  broadcastState(room);
+}
+
+function selectTrump(room, seat, suit) {
+  if (room.phase !== 'trump_selection' || !room.bid || room.bid.seat !== seat) return false;
+  if (!SUITS.includes(suit)) return false;
+  room.bid.suit = suit;
+  room.bid.symbol = suitMeta[suit].symbol;
+  room.pendingBotTrumpSuit = null;
+  room.phase = 'playing';
+  room.turnSeat = seat;
+  room.bidTurn = null;
+  startTurnTimer(room);
+  broadcastState(room);
+  sendRoom(room);
+  return true;
+}
+
 function applyBid(room, seat, action) {
   if (room.phase !== 'bidding' || room.turnSeat !== seat) return;
   if (!canBid(seat, room.passed)) {
@@ -237,28 +274,23 @@ function applyBid(room, seat, action) {
     if (!room.passed.includes(seat)) room.passed.push(seat);
   } else {
     const amount = Number(action.amount);
-    const suit = String(action.suit || '');
+    const suggestedSuit = String(action.suit || '');
     const min = room.bid ? room.bid.amount + 1 : 7;
-    if (!Number.isInteger(amount) || amount < min || amount > 13 || !SUITS.includes(suit)) return;
-    room.bid = { seat, amount, suit, symbol: suitMeta[suit].symbol };
+    if (!Number.isInteger(amount) || amount < min || amount > 13) return;
+    room.bid = { seat, amount, suit: null, symbol: null };
+    room.pendingBotTrumpSuit = room.players[seat]?.isBot && SUITS.includes(suggestedSuit)
+      ? suggestedSuit
+      : null;
     if (amount === 13) {
-      // A maximum Kaboot bid closes the auction immediately.
-      room.phase = 'playing';
-      room.turnSeat = seat;
-      room.bidTurn = null;
-      startTurnTimer(room);
-      broadcastState(room);
+      // A maximum Kaboot bid closes the auction; only the winner selects trump.
+      startTrumpSelection(room);
       return;
     }
   }
   const activeSeats = [0, 1, 2, 3].filter(s => !room.passed.includes(s));
   if (activeSeats.length === 0) {
     if (room.bid) {
-      room.phase = 'playing';
-      room.turnSeat = room.bid.seat;
-      room.bidTurn = null;
-      startTurnTimer(room);
-      broadcastState(room);
+      startTrumpSelection(room);
     } else {
       // Defensive recovery: return control to the dealer instead of silently redealing.
       room.passed = [0, 1, 2, 3].filter(s => s !== room.dealerSeat);
@@ -271,17 +303,17 @@ function applyBid(room, seat, action) {
     return;
   }
   if (room.bid && activeSeats.length === 1 && activeSeats[0] === room.bid.seat) {
-    room.phase = 'playing';
-    room.turnSeat = room.bid.seat;
-    room.bidTurn = null;
-    startTurnTimer(room);
-    broadcastState(room);
+    startTrumpSelection(room);
     return;
   }
   room.turnSeat = nextBidder(room, seat);
   if (room.turnSeat === null) {
-    room.phase = 'playing';
-    room.turnSeat = room.bid ? room.bid.seat : seatToRight(room.dealerSeat);
+    if (room.bid) {
+      startTrumpSelection(room);
+      return;
+    }
+    room.phase = 'bidding';
+    room.turnSeat = room.dealerSeat;
   }
   startTurnTimer(room);
   broadcastState(room);
@@ -598,6 +630,15 @@ io.on('connection', socket => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
     const player = room && playerFor(room, socket);
     if (room && player) applyBid(room, player.seat, payload || {});
+  });
+  socket.on('select_trump', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    const suit = String(payload?.suit || '');
+    if (!room || !player) return;
+    if (!selectTrump(room, player.seat, suit)) {
+      socket.emit('notice', 'اختيار الحكم متاح فقط لصاحب أعلى طلب');
+    }
   });
   socket.on('play_card', payload => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
