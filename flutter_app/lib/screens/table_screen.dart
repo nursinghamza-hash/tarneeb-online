@@ -571,7 +571,7 @@ class _TableScreenState extends State<TableScreen> {
                 SizedBox(
                   width: 57, height: 57,
                   child: CircularProgressIndicator(
-                    value: _state['paused'] == true ? 1 : (_secondsLeft / 15).clamp(0.0, 1.0),
+                    value: _state['paused'] == true ? 1.0 : (_secondsLeft / 15).clamp(0.0, 1.0).toDouble(),
                     strokeWidth: 3.2,
                     backgroundColor: Colors.white.withOpacity(.14),
                     valueColor: AlwaysStoppedAnimation<Color>(
@@ -1149,7 +1149,9 @@ class _TableScreenState extends State<TableScreen> {
       final rows = _debugHands;
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        constraints: BoxConstraints(maxWidth: constraints.maxWidth - 10, maxHeight: constraints.maxHeight - 10),
+        width: double.infinity,
+        height: double.infinity,
+        margin: const EdgeInsets.all(5),
         padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
         decoration: BoxDecoration(
           color: const Color(0xE8090A09),
