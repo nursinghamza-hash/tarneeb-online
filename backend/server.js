@@ -126,7 +126,6 @@ function stateFor(room, seat) {
     playedCards: room.playedCards || [],
     dealPattern: room.dealPattern || 'one',
     scores: room.scores,
-    roundHistory: room.roundHistory || [],
     tricks: room.tricks,
     currentTrick: room.currentTrick,
     turnSeat: room.turnSeat,
@@ -372,8 +371,6 @@ function finishRound(room) {
     after: [...room.scores],
     bidMet,
   };
-  if (!Array.isArray(room.roundHistory)) room.roundHistory = [];
-  room.roundHistory.push({ ...room.lastRound });
   room.phase = 'round_result';
   room.deadline = null;
   if (room.scores.some(score => score >= room.targetScore)) {
@@ -428,7 +425,6 @@ function createRoom(socket, payload) {
   const room = {
     code, targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
     scoringPreset: payload.scoringPreset === 'jawaker' ? 'jawaker' : 'house_16_14',
-    hostToken: token, players: Array(4).fill(null), scores: [0, 0], roundHistory: [],
     partnerSeat: 2, dealMode: 'random', aiPractice: payload.aiPractice === true, reports: [],
     tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
     dealPattern: 'one', lastTrick: [], trickTimer: null, debugEnabledSeats: new Set(),
@@ -511,7 +507,6 @@ function startGame(room, player) {
   if (room.players.some(p => !p)) return io.to(player.id).emit('room_error', 'تحتاج الطاولة إلى 4 لاعبين لبدء اللعب');
   if (room.partnerSeat !== 2) room.partnerSeat = 2;
   room.scores = [0, 0];
-  room.roundHistory = [];
   room.roundNumber = 1;
   beginNextDeal(room);
 }
@@ -716,7 +711,6 @@ io.on('connection', socket => {
       room.rematchVotes.clear();
       io.to(room.code).emit('rematch_votes', []);
       room.scores = [0, 0];
-      room.roundHistory = [];
       room.dealerSeat = seatToRight(room.dealerSeat);
       room.roundNumber = 1;
       beginNextDeal(room);
