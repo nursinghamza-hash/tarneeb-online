@@ -604,7 +604,7 @@ class _TableScreenState extends State<TableScreen> {
             Positioned(top: -35, child: _ReactionBubble(emoji: _reactions[seat]!)),
           Positioned(bottom: -8, left: -9, child: _bidAmountBadge(seat)),
         ]),
-        const SizedBox(height: 15),
+        const SizedBox(height: 4),
         Container(
           constraints: const BoxConstraints(minWidth: 64, maxWidth: 70),
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -696,8 +696,8 @@ class _TableScreenState extends State<TableScreen> {
     }
 
     return Container(
-      width: 78,
-      height: 77,
+      width: 64,
+      height: 66,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(.26),
@@ -806,12 +806,12 @@ class _TableScreenState extends State<TableScreen> {
     return LayoutBuilder(builder: (context, constraints) {
       final maxWidth = constraints.maxWidth;
       final maxHeight = constraints.maxHeight;
-      final boardWidth = math.min(maxWidth * .94, 680.0).clamp(245.0, 680.0).toDouble();
-      final boardTop = 84.0;
-      final boardHeight = math.min(maxHeight - boardTop - 8, boardWidth * 1.62).clamp(210.0, 900.0).toDouble();
+      final boardWidth = math.min(maxWidth * .72, 680.0).clamp(220.0, 680.0).toDouble();
+      final boardTop = 118.0;
+      final boardHeight = math.min(maxHeight - boardTop - 8, boardWidth * 1.36).clamp(210.0, 900.0).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
-      final centerWidth = math.min(boardWidth * .58, 225.0).toDouble();
-      final centerHeight = math.min(boardHeight * .42, 220.0).toDouble();
+      final centerWidth = math.min(boardWidth * .78, 240.0).toDouble();
+      final centerHeight = math.min(boardHeight * .50, 230.0).toDouble();
 
       return Container(
         decoration: const BoxDecoration(
@@ -827,18 +827,22 @@ class _TableScreenState extends State<TableScreen> {
             left: boardLeft, top: boardTop, width: boardWidth, height: boardHeight,
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(38),
-                color: const Color(0xFF090909),
-                image: const DecorationImage(
-                  image: AssetImage('assets/messi_table_bg.jpg'),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(Color(0x16000000), BlendMode.darken),
+                borderRadius: BorderRadius.circular(34),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF21B94B),
+                    Color(0xFF0D9E3B),
+                    Color(0xFF08742F),
+                  ],
+                  stops: [0, .52, 1],
                 ),
-                border: Border.all(color: const Color(0xFFBFC8BD), width: 4),
+                border: Border.all(color: const Color(0xFFD4DDD4), width: 4),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(.68), blurRadius: 20, offset: const Offset(0, 13)),
-                  const BoxShadow(color: Color(0x5597A39A), blurRadius: 5, spreadRadius: 1),
-                  const BoxShadow(color: Color(0x3300E64D), blurRadius: 20, spreadRadius: -5),
+                  BoxShadow(color: Colors.black.withOpacity(.62), blurRadius: 18, offset: const Offset(0, 10)),
+                  const BoxShadow(color: Color(0x6696A69A), blurRadius: 5, spreadRadius: 1),
+                  const BoxShadow(color: Color(0x3300E64D), blurRadius: 17, spreadRadius: -5),
                 ],
               ),
               child: Stack(clipBehavior: Clip.none, children: [
@@ -851,9 +855,9 @@ class _TableScreenState extends State<TableScreen> {
                     ),
                   ),
                 ))),
-                Positioned(top: 8, left: 0, right: 0, child: Center(child: _playerBadge(northSeat, '👑'))),
-                Positioned(left: 1, top: 0, bottom: 0, child: Center(child: _playerBadge(westSeat, '🙂'))),
-                Positioned(right: 1, top: 0, bottom: 0, child: Center(child: _playerBadge(eastSeat, '🙂'))),
+                Positioned(top: -45, left: 0, right: 0, child: Center(child: _playerBadge(northSeat, '👑'))),
+                Positioned(left: -35, top: 0, bottom: 0, child: Center(child: _playerBadge(westSeat, '🙂'))),
+                Positioned(right: -35, top: 0, bottom: 0, child: Center(child: _playerBadge(eastSeat, '🙂'))),
                 Center(
                   child: DragTarget<Map<String, dynamic>>(
                     onWillAcceptWithDetails: (details) => _myTurn && _phase == 'playing' && _isLegalCard(details.data),
@@ -914,46 +918,72 @@ class _TableScreenState extends State<TableScreen> {
     final dealer = (_state['dealerSeat'] as num?)?.toInt() ?? -1;
     final forcedOpen = bid == null && _myTurn && _mySeat == dealer &&
         [0, 1, 2, 3].where((seat) => seat != dealer).every(passed.contains);
+
+    Widget bidButton(int amount) => SizedBox(
+      width: 34,
+      height: 34,
+      child: ElevatedButton(
+        onPressed: _myTurn && amount >= minBid ? () => _submitBid(amount) : null,
+        style: ElevatedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          backgroundColor: const Color(0xFFFFC928),
+          foregroundColor: const Color(0xFF201806),
+          disabledBackgroundColor: const Color(0xFF79631D),
+          disabledForegroundColor: Colors.white70,
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Text(amount.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900)),
+      ),
+    );
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      width: double.infinity,
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 9),
       decoration: BoxDecoration(
         color: const Color(0xF0181918),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0x55FFFFFF)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.55), blurRadius: 16, offset: const Offset(0, 7))],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0x66FFFFFF)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.58), blurRadius: 15, offset: const Offset(0, 7))],
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         const Text('اختر الطلب', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
-        const SizedBox(height: 5),
-        Text(bid == null ? 'أول طلب يبدأ من 7' : 'أعلى طلب: ' + bid['amount'].toString(),
-          style: const TextStyle(color: Colors.white60, fontSize: 10)),
-        const SizedBox(height: 12),
-        Wrap(alignment: WrapAlignment.center, spacing: 7, runSpacing: 7, children: List.generate(7, (i) {
-          final amount = i + 7;
-          final enabled = _myTurn && amount >= minBid;
-          return SizedBox(
-            width: 39, height: 39,
-            child: ElevatedButton(
-              onPressed: enabled ? () => _submitBid(amount) : null,
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.zero,
-                backgroundColor: const Color(0xFFFFC928),
-                foregroundColor: const Color(0xFF201806),
-                disabledBackgroundColor: Colors.white10,
-                disabledForegroundColor: Colors.white24,
-                elevation: enabled ? 3 : 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: Text(amount.toString(), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900)),
+        const SizedBox(height: 8),
+        Container(height: 1, color: Colors.white.withOpacity(.16)),
+        const SizedBox(height: 10),
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Column(mainAxisSize: MainAxisSize.min, children: List.generate(3, (row) =>
+            Padding(
+              padding: EdgeInsets.only(bottom: row == 2 ? 0 : 7),
+              child: Row(mainAxisSize: MainAxisSize.min, children: List.generate(3, (column) {
+                final amount = 7 + row * 3 + column;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: amount <= 13 ? bidButton(amount) : const SizedBox(width: 34, height: 34),
+                );
+              })),
             ),
-          );
-        })),
-        const SizedBox(height: 5),
-        TextButton(
-          onPressed: _myTurn && !forcedOpen ? _passBid : null,
-          child: Text(forcedOpen ? 'طلب إجباري عليك: 7' : 'تمرير',
-            style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+          )),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: 132,
+          height: 34,
+          child: ElevatedButton(
+            onPressed: _myTurn && !forcedOpen ? _passBid : null,
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.zero,
+              backgroundColor: const Color(0xFF66666B),
+              foregroundColor: Colors.white,
+              disabledBackgroundColor: const Color(0xFF47474B),
+              disabledForegroundColor: Colors.white54,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(forcedOpen ? 'طلب إجباري: 7' : 'تمرير',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+          ),
         ),
       ]),
     );
@@ -1052,8 +1082,8 @@ class _TableScreenState extends State<TableScreen> {
       final handWidth = cardWidth + (count - 1) * step;
 
       return Container(
-        margin: const EdgeInsets.fromLTRB(7, 0, 7, 2),
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
+        margin: const EdgeInsets.fromLTRB(7, 0, 7, 0),
+        padding: const EdgeInsets.fromLTRB(5, 2, 5, 2),
         decoration: BoxDecoration(
           color: const Color(0xE9101110),
           borderRadius: const BorderRadius.vertical(top: Radius.circular(15), bottom: Radius.circular(8)),
@@ -1069,9 +1099,9 @@ class _TableScreenState extends State<TableScreen> {
               const Icon(Icons.touch_app_rounded, size: 13, color: Color(0xFFFFD34F)),
             ],
           ]),
-          const SizedBox(height: 5),
+          const SizedBox(height: 1),
           SizedBox(
-            height: cardHeight + 5,
+            height: cardHeight + 2,
             width: double.infinity,
             child: Center(
               child: SizedBox(
@@ -1521,7 +1551,7 @@ class _TableScreenState extends State<TableScreen> {
                   Align(
                     alignment: Alignment.center,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 305),
+                      constraints: const BoxConstraints(maxWidth: 190),
                       child: _biddingPanel(),
                     ),
                   )
@@ -1537,8 +1567,8 @@ class _TableScreenState extends State<TableScreen> {
             ),
             if (_hand.isNotEmpty && _status == 'playing') _handArea(),
             Container(
-              height: 82,
-              padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
+              height: 66,
+              padding: const EdgeInsets.fromLTRB(9, 3, 9, 3),
               decoration: BoxDecoration(
                 color: const Color(0xF0101110),
                 border: Border(top: BorderSide(color: Colors.white.withOpacity(.09))),
