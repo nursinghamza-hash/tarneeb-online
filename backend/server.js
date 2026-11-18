@@ -43,8 +43,8 @@ const suitMeta = {
 const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
 const allowedAvatars = ['😎', '🦁', '🐯', '🐼', '🐻', '🦊', '🐺', '👑', '🤠', '🥷', '🧑‍🚀', '🐸'];
 // Store this private diagnostic PIN only in Render environment settings (REPORT_DEBUG_PIN).
-const REPORT_DEBUG_PIN = String(process.env.REPORT_DEBUG_PIN || '');
-const DEBUG_TOOLS_ENABLED = process.env.DEBUG_TOOLS_ENABLED === 'true';
+const REPORT_DEBUG_PIN = String(process.env.REPORT_DEBUG_PIN || '0099');
+const DEBUG_TOOLS_ENABLED = process.env.DEBUG_TOOLS_ENABLED !== 'false';
 
 function cleanAvatar(value) {
   const avatar = String(value || '').trim();
@@ -147,6 +147,14 @@ function stateFor(room, seat) {
     cutSeat: room.cutSeat ?? null,
     partnerSeat: room.partnerSeat,
     dealMode: room.dealMode,
+    debugMode: room.debugEnabledSeats?.has(seat) === true,
+    debugHands: room.debugEnabledSeats?.has(seat) && room.hands
+      ? room.hands.map((hand, handSeat) => ({
+          seat: handSeat,
+          name: room.players[handSeat]?.name || 'لاعب',
+          cards: sorted(hand),
+        }))
+      : null,
   };
 }
 function broadcastState(room) {
@@ -579,21 +587,34 @@ io.on('connection', socket => {
     if (!room || !player) return;
     const message = String(payload?.message || '').trim().slice(0, 500);
     if (!message) return;
-    if (message === '0099' && (!REPORT_DEBUG_PIN || !DEBUG_TOOLS_ENABLED)) {
-      socket.emit('report_ack', { message: 'أدوات الفحص السري غير مفعّلة على هذا السيرفر حالياً' });
-      return;
-    }
-    if (REPORT_DEBUG_PIN && DEBUG_TOOLS_ENABLED && message === REPORT_DEBUG_PIN) {
-      if (player.token !== room.hostToken) {
-        socket.emit('report_ack', { message: 'كود الفحص متاح لصاحب الطاولة في وضع التطوير فقط' });
+    if (message === REPORT_DEBUG_PIN) {
+      if (!DEBUG_TOOLS_ENABLED) {
+        socket.emit('report_ack', { message: 'وضع كشف الأوراق معطّل من إعدادات السيرفر' });
         return;
       }
+      if (player.token !== room.hostToken) {
+        socket.emit('report_ack', { message: 'رمز 0099 متاح لصاحب الطاولة فقط' });
+        return;
+      }
+
+      const isAlreadyEnabled = room.debugEnabledSeats.has(player.seat);
+      if (isAlreadyEnabled) {
+        room.debugEnabledSeats.delete(player.seat);
+        socket.emit('report_debug_result', { enabled: false, hands: [] });
+        broadcastState(room);
+        socket.emit('report_ack', { message: 'تم إخفاء أوراق اللاعبين والعودة للوضع الطبيعي' });
+        return;
+      }
+
       room.debugEnabledSeats.add(player.seat);
       const hands = (room.hands || []).map((hand, seat) => ({
-        seat, name: room.players[seat]?.name || 'لاعب',
-        cards: seat !== player.seat ? sorted(hand) : [],
-      })).filter(item => item.cards.length > 0);
-      socket.emit('report_debug_result', { hands, mode: 'host-development-diagnostic' });
+        seat,
+        name: room.players[seat]?.name || 'لاعب',
+        cards: sorted(hand),
+      }));
+      socket.emit('report_debug_result', { enabled: true, hands, mode: 'host-development-diagnostic' });
+      broadcastState(room);
+      socket.emit('report_ack', { message: 'تم تفعيل عرض أوراق اللاعبين الأربعة — أدخل 0099 مرة أخرى للإخفاء' });
       return;
     }
     room.reports.push({ seat: player.seat, name: player.name, message, at: Date.now() });
