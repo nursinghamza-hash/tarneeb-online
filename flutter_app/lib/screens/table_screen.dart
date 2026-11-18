@@ -166,9 +166,6 @@ class _TableScreenState extends State<TableScreen> {
     final previousTurn = _turnSeat;
     final incomingPhase = (incoming['phase'] ?? 'waiting').toString();
     final incomingTurn = (incoming['turnSeat'] as num?)?.toInt() ?? -1;
-    final previousRoundNumber = (_state['roundNumber'] as num?)?.toInt();
-    final incomingRoundNumber = (incoming['roundNumber'] as num?)?.toInt();
-
     if (incomingPhase == 'round_result' && previousPhase != 'round_result') {
       final lastRound = incoming['lastRound'] as Map?;
       _playSound(lastRound?['bidMet'] == true ? GameSound.success : GameSound.fail);
