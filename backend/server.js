@@ -14,6 +14,7 @@ const {
   canBid,
 } = require('./game_rules');
 const { chooseBid, chooseCard } = require('./bot_ai');
+const { isDebugSeatEnabled, toggleDebugSeat, getDebugHandsForSeat } = require('./debug_tools');
 const {
   isValidBidAmount,
   createBidRecord,
@@ -147,14 +148,8 @@ function stateFor(room, seat) {
     cutSeat: room.cutSeat ?? null,
     partnerSeat: room.partnerSeat,
     dealMode: room.dealMode,
-    debugMode: room.debugEnabledSeats?.has(seat) === true,
-    debugHands: room.debugEnabledSeats?.has(seat) && room.hands
-      ? room.hands.map((hand, handSeat) => ({
-          seat: handSeat,
-          name: room.players[handSeat]?.name || 'لاعب',
-          cards: sorted(hand),
-        }))
-      : null,
+    debugMode: isDebugSeatEnabled(room, seat),
+    debugHands: getDebugHandsForSeat(room, seat, sorted),
   };
 }
 function broadcastState(room) {
@@ -597,21 +592,15 @@ io.on('connection', socket => {
         return;
       }
 
-      const isAlreadyEnabled = room.debugEnabledSeats.has(player.seat);
-      if (isAlreadyEnabled) {
-        room.debugEnabledSeats.delete(player.seat);
+      const enabled = toggleDebugSeat(room, player.seat);
+      if (!enabled) {
         socket.emit('report_debug_result', { enabled: false, hands: [] });
         broadcastState(room);
         socket.emit('report_ack', { message: 'تم إخفاء أوراق اللاعبين والعودة للوضع الطبيعي' });
         return;
       }
 
-      room.debugEnabledSeats.add(player.seat);
-      const hands = (room.hands || []).map((hand, seat) => ({
-        seat,
-        name: room.players[seat]?.name || 'لاعب',
-        cards: sorted(hand),
-      }));
+      const hands = getDebugHandsForSeat(room, player.seat, sorted) || [];
       socket.emit('report_debug_result', { enabled: true, hands, mode: 'host-development-diagnostic' });
       broadcastState(room);
       socket.emit('report_ack', { message: 'تم تفعيل عرض أوراق اللاعبين الأربعة — أدخل 0099 مرة أخرى للإخفاء' });
