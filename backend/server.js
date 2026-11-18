@@ -589,6 +589,38 @@ io.on('connection', socket => {
     console.log(`[player-report] room=${room.code} from=${player.name}: ${message}`);
     socket.emit('report_ack', { message: 'تم استلام بلاغك' });
   });
+  socket.on('debug_suggest_card', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    if (!room || !player || !REPORT_DEBUG_PIN || !DEBUG_TOOLS_ENABLED ||
+        player.token !== room.hostToken || !room.debugEnabledSeats.has(player.seat)) {
+      if (player && player.id) socket.emit('report_ack', { message: 'مساعد الورقة متاح لصاحب الطاولة في وضع التطوير فقط' });
+      return;
+    }
+    if (room.phase !== 'playing' || room.turnSeat !== player.seat ||
+        !room.bid?.suit || !room.hands?.[player.seat]?.length) {
+      socket.emit('notice', 'اقتراح الورقة يظهر عندما يكون دورك في اللعب فقط');
+      return;
+    }
+
+    const suggested = chooseCard({
+      hand: room.hands[player.seat],
+      trick: room.currentTrick,
+      trumpSuit: room.bid.suit,
+      seat: player.seat,
+      partnerSeat: (player.seat + 2) % 4,
+      bidderSeat: room.bid.seat,
+      allHands: room.hands,
+    });
+    if (!suggested || !legalCards(room, player.seat).some(card => card.code === suggested.code)) {
+      socket.emit('notice', 'لم يتوفر اقتراح قانوني لهذه الحركة');
+      return;
+    }
+    socket.emit('debug_hint_card', {
+      cardCode: suggested.code,
+      explanation: 'اقتراح تكتيكي حسب الورق الظاهر، لون الطرنيب، وموقف الشريك',
+    });
+  });
   socket.on('debug_boost_hand', payload => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
     const player = room && playerFor(room, socket);
