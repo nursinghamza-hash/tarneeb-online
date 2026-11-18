@@ -174,6 +174,7 @@ function stateFor(room, seat) {
     mySeat: seat,
     myHand: room.hands ? sorted(room.hands[seat], room.bid?.suit || null) : [],
     handCounts: room.hands ? room.hands.map(h => h.length) : [0, 0, 0, 0],
+    turnVersion: room.turnVersion || 0,
     // Public played-card history only; hidden hands remain server-private.
     playedCards: room.playedCards || [],
     lastTrick: room.lastTrick || [],
@@ -211,7 +212,7 @@ function startTurnTimer(room, overrideDelayMs = null) {
   if (room.paused) { room.deadline = null; return; }
   const seat = room.turnSeat;
   const isBotTurn = room.players[seat]?.isBot === true;
-  const delayMs = overrideDelayMs == null ? (isBotTurn ? 650 : TURN_SECONDS * 1000) : Math.max(0, overrideDelayMs);
+  const delayMs = overrideDelayMs == null ? (isBotTurn ? 1000 : TURN_SECONDS * 1000) : Math.max(0, overrideDelayMs);
   room.deadline = Date.now() + delayMs;
   room.turnTimer = setTimeout(() => {
     if (!rooms.has(room.code) || room.status !== 'playing' || room.paused || room.turnSeat !== seat) return;
@@ -236,7 +237,7 @@ function startTurnTimer(room, overrideDelayMs = null) {
           bidderSeat: room.bid.seat,
           allHands: room.hands,
         });
-        if (selected) playCard(room, seat, selected.code, true);
+        if (selected) playCard(room, seat, selected.code, false);
       }
       return;
     }
@@ -256,6 +257,7 @@ function startRound(room, preparedDeck = null, dealPattern = 'one') {
   room.cutSeat = null;
   // Seats: 0 south, 1 east/right, 2 north, 3 west/left.
   // The first card goes to the dealer's right; direction is counterclockwise.
+  room.turnVersion = (room.turnVersion || 0) + 1;
   room.hands = dealHands(deck, room.dealerSeat, dealPattern).map(sorted);
   room.dealPattern = dealPattern;
   room.pendingBotTrumpSuit = null;
@@ -443,18 +445,20 @@ function finishRound(room) {
   broadcastState(room);
   sendRoom(room);
 }
-function playCard(room, seat, cardCode, automatic = false) {
-  if (room.paused || room.phase !== 'playing' || room.turnSeat !== seat) return;
+function playCard(room, seat, cardCode, automatic = false, expectedVersion = null) {
+  if (room.paused || room.phase !== 'playing' || room.turnSeat !== seat) return false;
+  if (expectedVersion != null && Number(expectedVersion) !== (room.turnVersion || 0)) return false;
   const hand = room.hands[seat];
   const card = hand.find(c => c.code === cardCode);
-  if (!card) return;
+  if (!card) return false;
   const legal = legalCards(room, seat);
   if (!legal.some(c => c.code === cardCode)) {
     const p = room.players[seat];
     if (p && p.id) io.to(p.id).emit('notice', 'يجب اتباع نفس نوع الورقة إذا كان متوفراً');
-    return;
+    return false;
   }
 
+  room.turnVersion = (room.turnVersion || 0) + 1;
   clearTurnTimer(room);
   room.hands[seat] = hand.filter(c => c.code !== cardCode);
   room.currentTrick.push({ seat, card });
@@ -474,6 +478,7 @@ function playCard(room, seat, cardCode, automatic = false) {
   if (automatic) {
     io.to(room.code).emit('notice', 'انتهى وقت اللاعب ' + (room.players[seat]?.name || '') + ' وتم لعب ورقة تلقائياً');
   }
+  return true;
 }
 function createRoom(socket, payload) {
   const code = roomCode();
@@ -490,7 +495,7 @@ function createRoom(socket, payload) {
     status: 'waiting', turnSeat: 0, bidTurn: null, bid: null, passed: [],
     paused: false, pausedBy: null, pausedTurnRemainingMs: null, pausedTrickRemainingMs: null, trickDeadline: null,
     dealerSeat: crypto.randomInt(4), roundNumber: 0, winnerTeam: null,
-    lastRound: null, rematchVotes: new Set(), turnTimer: null,
+    lastRound: null, rematchVotes: new Set(), turnTimer: null, turnVersion: 0,
   };
   room.players[0] = { id: socket.id, token, name: cleanName(payload.playerName), avatar: cleanAvatar(payload.avatar), seat: 0, connected: true, ready: true };
   if (room.aiPractice) {
@@ -768,7 +773,17 @@ io.on('connection', socket => {
   socket.on('play_card', payload => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
     const player = room && playerFor(room, socket);
-    if (room && player) playCard(room, player.seat, String(payload?.cardCode || ''));
+    if (!room || !player) return;
+    const accepted = playCard(
+      room,
+      player.seat,
+      String(payload?.cardCode || ''),
+      false,
+      payload?.turnVersion,
+    );
+    // A stale/delayed command must never be replayed on a later turn.
+    // Send the authoritative state back so the client unlocks and refreshes.
+    if (!accepted && player.id) socket.emit('game_state', stateFor(room, player.seat));
   });
   socket.on('quick_reaction', payload => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
