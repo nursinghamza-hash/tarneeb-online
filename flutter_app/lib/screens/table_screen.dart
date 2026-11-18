@@ -1042,13 +1042,15 @@ class _TableScreenState extends State<TableScreen> {
   Widget _waitingOrResult() {
     if (_status == 'waiting') {
       final count = _players.where((p) => p != null).length;
+      final connectedCount = _players.where((p) => p != null && (p['connected'] == true || p['isBot'] == true)).length;
       final chosenPartner = _partnerSeat;
       Widget partnerOption(int seat) {
         final selected = chosenPartner == seat;
-        final available = seat < _players.length && _players[seat] != null;
+        final candidate = seat < _players.length ? _players[seat] : null;
+        final available = candidate is Map && (candidate['connected'] == true || candidate['isBot'] == true);
         return Expanded(
           child: InkWell(
-            onTap: _isHost && count == 4 && available ? () => _selectPartner(seat) : null,
+            onTap: _isHost && count == 4 && connectedCount == 4 && available ? () => _selectPartner(seat) : null,
             borderRadius: BorderRadius.circular(14),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
@@ -1116,7 +1118,7 @@ class _TableScreenState extends State<TableScreen> {
             Text(
               count == 4
                 ? (chosenPartner == null ? 'اختر أحد اللاعبين الثلاثة ليكون شريكك' : 'شريكك: ${_playerName(chosenPartner)}')
-                : 'بانتظار اكتمال المقاعد قبل اختيار الشريك',
+                : 'بانتظار اتصال جميع اللاعبين قبل اختيار الشريك',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white70, fontSize: 10),
             ),
@@ -1125,7 +1127,7 @@ class _TableScreenState extends State<TableScreen> {
               width: double.infinity,
               height: 42,
               child: ElevatedButton(
-                onPressed: count == 4 && chosenPartner != null ? _startGame : null,
+                onPressed: count == 4 && connectedCount == 4 && chosenPartner != null ? _startGame : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFFFFC928),
                   foregroundColor: const Color(0xFF1B1608),
