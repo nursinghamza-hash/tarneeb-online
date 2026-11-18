@@ -180,6 +180,7 @@ function stateFor(room, seat) {
     dealPattern: room.dealPattern || 'one',
     scores: room.scores,
     tricks: room.tricks,
+    seatTricks: room.seatTricks || [0, 0, 0, 0],
     currentTrick: room.currentTrick,
     turnSeat: room.turnSeat,
     deadline: room.deadline,
@@ -261,6 +262,7 @@ function startRound(room, preparedDeck = null, dealPattern = 'one') {
   room.playedCards = [];
   room.lastTrick = [];
   room.tricks = [0, 0];
+  room.seatTricks = [0, 0, 0, 0];
   room.currentTrick = [];
   room.bid = null;
   room.passed = [];
@@ -402,6 +404,8 @@ function completeTrick(room) {
   }
   const winningTeam = teamForSeat(room, winning.seat);
   room.tricks[winningTeam] += 1;
+  if (!Array.isArray(room.seatTricks)) room.seatTricks = [0, 0, 0, 0];
+  room.seatTricks[winning.seat] += 1;
   room.lastTrick = room.currentTrick.map(item => ({ seat: item.seat, card: item.card }));
   room.currentTrick = [];
   room.turnSeat = winning.seat;
@@ -481,7 +485,7 @@ function createRoom(socket, payload) {
     scoringPreset: payload.scoringPreset === 'house_16_14' ? 'house_16_14' : 'jawaker',
     partnerSeat: payload.aiPractice === true ? 2 : null, dealMode: 'random', aiPractice: payload.aiPractice === true, reports: [],
     players: [null, null, null, null],
-    tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
+    tricks: [0, 0], seatTricks: [0, 0, 0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
     dealPattern: 'one', lastTrick: [], trickTimer: null, debugEnabledSeats: new Set(),
     status: 'waiting', turnSeat: 0, bidTurn: null, bid: null, passed: [],
     paused: false, pausedBy: null, pausedTurnRemainingMs: null, pausedTrickRemainingMs: null, trickDeadline: null,
