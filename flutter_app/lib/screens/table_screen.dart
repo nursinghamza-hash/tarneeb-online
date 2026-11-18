@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -24,7 +25,7 @@ class TableScreen extends StatefulWidget {
 
 class _TableScreenState extends State<TableScreen> {
   static const List<String> _emojis = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
-  static const List<String> _suits = ['SPADES', 'HEARTS', 'DIAMONDS', 'CLUBS'];
+  static const List<String> _suits = ['HEARTS', 'SPADES', 'DIAMONDS', 'CLUBS'];
   static const Map<String, String> _symbols = {
     'SPADES': '♠', 'HEARTS': '♥', 'DIAMONDS': '♦', 'CLUBS': '♣',
   };
@@ -36,7 +37,7 @@ class _TableScreenState extends State<TableScreen> {
   List<dynamic> _players = [];
   List<int> _rematchVotes = [];
   final Map<int, String> _reactions = {};
-  String _selectedSuit = 'SPADES';
+  String _selectedSuit = 'HEARTS';
   int _secondsLeft = 15;
   int _customCutAt = 18;
   String? _selectedCardCode;
@@ -151,7 +152,7 @@ class _TableScreenState extends State<TableScreen> {
     final incomingTurn = (incoming['turnSeat'] as num?)?.toInt() ?? -1;
     setState(() {
       if (incomingPhase == 'trump_selection' && previousPhase != 'trump_selection') {
-        _selectedSuit = 'SPADES';
+        _selectedSuit = 'HEARTS';
       }
       if (previousTurn != incomingTurn) _recommendedCardCode = null;
       _state = incoming;
@@ -465,36 +466,70 @@ class _TableScreenState extends State<TableScreen> {
 
   bool _connected(int seat) => seat < _players.length && _players[seat] != null && _players[seat]['connected'] == true;
 
-  Widget _playerBadge(int seat, String position) {
+  String _playerAvatar(int seat) {
+    if (seat >= 0 && seat < _players.length && _players[seat] is Map) {
+      final value = (_players[seat]['avatar'] ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+    return seat == _mySeat ? '😎' : '🙂';
+  }
+
+  Widget _playerBadge(int seat, String fallback) {
     final active = _turnSeat == seat && _status == 'playing';
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      Stack(clipBehavior: Clip.none, children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-          decoration: BoxDecoration(
-            color: active ? kGold.withOpacity(.22) : Colors.black.withOpacity(.24),
-            borderRadius: BorderRadius.circular(13),
-            border: Border.all(color: active ? kGold : Colors.white24, width: active ? 1.5 : 1),
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Text(position, style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 5),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 82),
-              child: Text(_playerName(seat), maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: active ? FontWeight.bold : FontWeight.normal)),
+    final name = _playerName(seat);
+    final avatar = _playerAvatar(seat);
+    final count = seat < _counts.length ? _counts[seat] : 0;
+    return SizedBox(
+      width: 92,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            width: 54,
+            height: 54,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFF202020),
+              border: Border.all(color: active ? const Color(0xFFFFC928) : Colors.white70, width: active ? 3 : 1.5),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(.4), blurRadius: 8, offset: const Offset(0, 3)),
+                if (active) const BoxShadow(color: Color(0x66FFC928), blurRadius: 12),
+              ],
             ),
-            const SizedBox(width: 4),
-            Text('${seat < _counts.length ? _counts[seat] : 0}', style: const TextStyle(color: kGold, fontSize: 10)),
-          ]),
+            child: CircleAvatar(
+              backgroundColor: const Color(0xFF34443B),
+              child: Text(avatar.isEmpty ? fallback : avatar, style: const TextStyle(fontSize: 27)),
+            ),
+          ),
+          if (!_connected(seat))
+            const Positioned(right: -3, top: -2, child: Icon(Icons.wifi_off, color: Colors.orangeAccent, size: 14)),
+          if (_reactions.containsKey(seat))
+            Positioned(top: -35, child: _ReactionBubble(emoji: _reactions[seat]!)),
+        ]),
+        const SizedBox(height: 3),
+        Container(
+          constraints: const BoxConstraints(minWidth: 72, maxWidth: 92),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(.48),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: active ? const Color(0xFFFFD34F) : Colors.white54, width: active ? 1.4 : .8),
+          ),
+          child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: active ? FontWeight.bold : FontWeight.w500)),
         ),
-        if (!_connected(seat))
-          const Positioned(right: -3, top: -4, child: Icon(Icons.wifi_off, color: Colors.orangeAccent, size: 13)),
-        if (_reactions.containsKey(seat))
-          Positioned(top: -38, left: 8, child: _ReactionBubble(emoji: _reactions[seat]!)),
+        if (_status == 'playing' && _phase != 'bidding' && _phase != 'trump_selection')
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(.8), borderRadius: BorderRadius.circular(7)),
+              child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+            ),
+          ),
       ]),
-    ]);
+    );
   }
 
   void _openReactions() {
@@ -529,6 +564,33 @@ class _TableScreenState extends State<TableScreen> {
     ),
   );
 
+  Widget _scoreboard() {
+    final ownScore = _scores.length > _myTeam ? _scores[_myTeam] : 0;
+    final otherTeam = 1 - _myTeam;
+    final otherScore = _scores.length > otherTeam ? _scores[otherTeam] : 0;
+    final ownTricks = _tricks.length > _myTeam ? _tricks[_myTeam] : 0;
+    final otherTricks = _tricks.length > otherTeam ? _tricks[otherTeam] : 0;
+    Widget pill(dynamic value) => Container(
+      constraints: const BoxConstraints(minWidth: 31, minHeight: 25),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(color: Colors.black.withOpacity(.9), borderRadius: BorderRadius.circular(11)),
+      alignment: Alignment.center,
+      child: Text('$value', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+    );
+    return SizedBox(
+      width: 88, height: 78,
+      child: Stack(alignment: Alignment.center, children: [
+        Container(width: 60, height: 60, decoration: BoxDecoration(
+          border: Border.all(color: Colors.white24, width: 1.2), borderRadius: BorderRadius.circular(13))),
+        Text('$_target', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)),
+        Positioned(top: 0, child: pill(ownScore)),
+        Positioned(bottom: 0, child: pill(otherScore)),
+        Positioned(left: 0, child: pill(ownTricks)),
+        Positioned(right: 0, child: pill(otherTricks)),
+      ]),
+    );
+  }
+
   Widget _centerTable() {
     final southSeat = _mySeat;
     final eastSeat = (southSeat + 1) % 4;
@@ -544,78 +606,111 @@ class _TableScreenState extends State<TableScreen> {
       final item = Map<String, dynamic>.from(raw as Map);
       return PlayingCardWidget(
         card: _cardModel(item['card']),
-        isCompact: true,
+        cardWidth: 51,
+        cardHeight: 76,
         isPlayable: false,
       );
     }
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF146047), Color(0xFF083B2E)]),
-        border: Border.all(color: kGold.withOpacity(.35), width: 1.3),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.25), blurRadius: 15, offset: const Offset(0, 6))],
-      ),
-      child: Stack(children: [
-        Positioned.fill(child: Center(
-          child: Opacity(opacity: .08, child: Icon(Icons.style, size: 110, color: kGold)),
-        )),
-        Positioned(top: 8, left: 0, right: 0, child: Center(child: _playerBadge(northSeat, '👑'))),
-        Positioned(right: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 1, child: _playerBadge(eastSeat, '🂠')))),
-        Positioned(left: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 3, child: _playerBadge(westSeat, '🂠')))),
-        Center(
-          child: DragTarget<Map<String, dynamic>>(
-            onWillAcceptWithDetails: (details) => _myTurn && _phase == 'playing' && _isLegalCard(details.data),
-            onAcceptWithDetails: (details) => _playCard(details.data),
-            builder: (context, candidateData, rejectedData) {
-              final hovering = candidateData.isNotEmpty;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                width: 286,
-                height: 188,
-                decoration: BoxDecoration(
-                  color: hovering ? kGold.withOpacity(.12) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: hovering ? kGold : Colors.white.withOpacity(.07),
-                    width: hovering ? 2 : 1,
-                  ),
-                ),
-                child: Stack(children: [
-                  Positioned(top: 2, left: 0, right: 0, height: 68,
-                    child: Center(child: trickCardForSeat(northSeat))),
-                  Positioned(bottom: 2, left: 0, right: 0, height: 68,
-                    child: Center(child: trickCardForSeat(southSeat))),
-                  Positioned(left: 2, top: 0, bottom: 0, width: 52,
-                    child: Center(child: trickCardForSeat(westSeat))),
-                  Positioned(right: 2, top: 0, bottom: 0, width: 52,
-                    child: Center(child: trickCardForSeat(eastSeat))),
-                  if (_trick.isEmpty && _myTurn && _phase == 'playing')
-                    const Center(
-                      child: Text('اسحب الورقة إلى منتصف الطاولة',
-                        style: TextStyle(color: Colors.white38, fontSize: 10)),
-                    ),
-                  if (_phase == 'trick_resolving')
-                    const Positioned(
-                      bottom: 5, left: 0, right: 0,
-                      child: Center(child: Text('تحديد الفائز بالأكلة…',
-                        style: TextStyle(color: kGold, fontSize: 10, fontWeight: FontWeight.bold))),
-                    ),
-                ]),
-              );
-            },
+    return LayoutBuilder(builder: (context, constraints) {
+      final maxWidth = constraints.maxWidth;
+      final maxHeight = constraints.maxHeight;
+      final boardWidth = math.min(maxWidth - 30, maxHeight * .84).clamp(260.0, 440.0).toDouble();
+      final boardHeight = math.min(maxHeight * .91, boardWidth * 1.22);
+      final boardLeft = (maxWidth - boardWidth) / 2;
+      final boardTop = (maxHeight - boardHeight) / 2 + 8;
+      final centerWidth = math.min(boardWidth * .68, 235.0);
+      final centerHeight = math.min(boardHeight * .43, 194.0);
+
+      return Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            colors: [Color(0xFF222222), Color(0xFF171717), Color(0xFF101010)],
           ),
         ),
-        Positioned(bottom: 7, left: 0, right: 0, child: Center(
-          child: Text(
-            _phase == 'bidding' ? 'مرحلة الطلب' : _phase == 'trump_selection' ? 'اختيار الحكم' : _phase == 'playing' || _phase == 'trick_resolving' ? 'الأكلة الحالية' : _phase == 'round_result' ? 'نتيجة الجولة' : 'الطاولة',
-            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+        child: Stack(clipBehavior: Clip.none, children: [
+          Positioned(left: 9, top: 4, child: _scoreboard()),
+          Positioned(
+            left: boardLeft, top: boardTop, width: boardWidth, height: boardHeight,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(38),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [Color(0xFF20B94B), Color(0xFF0C9B38), Color(0xFF08732F)],
+                  stops: [0, .48, 1],
+                ),
+                border: Border.all(color: const Color(0xFFBFC8BD), width: 4),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(.68), blurRadius: 20, offset: const Offset(0, 13)),
+                  const BoxShadow(color: Color(0x5597A39A), blurRadius: 5, spreadRadius: 1),
+                  const BoxShadow(color: Color(0x3300E64D), blurRadius: 20, spreadRadius: -5),
+                ],
+              ),
+              child: Stack(clipBehavior: Clip.none, children: [
+                Positioned.fill(child: IgnorePointer(child: Center(
+                  child: Container(
+                    width: boardWidth * .43, height: boardWidth * .43,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withOpacity(.035), width: 1.5),
+                    ),
+                  ),
+                ))),
+                Positioned(top: 8, left: 0, right: 0, child: Center(child: _playerBadge(northSeat, '👑'))),
+                Positioned(left: 1, top: 0, bottom: 0, child: Center(child: _playerBadge(westSeat, '🙂'))),
+                Positioned(right: 1, top: 0, bottom: 0, child: Center(child: _playerBadge(eastSeat, '🙂'))),
+                Center(
+                  child: DragTarget<Map<String, dynamic>>(
+                    onWillAcceptWithDetails: (details) => _myTurn && _phase == 'playing' && _isLegalCard(details.data),
+                    onAcceptWithDetails: (details) => _playCard(details.data),
+                    builder: (context, candidateData, rejectedData) {
+                      final hovering = candidateData.isNotEmpty;
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 140),
+                        width: centerWidth,
+                        height: centerHeight,
+                        decoration: BoxDecoration(
+                          color: hovering ? const Color(0x33FFF0A8) : Colors.black.withOpacity(.035),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: hovering ? const Color(0xFFFFD34F) : Colors.white.withOpacity(.055), width: hovering ? 2 : 1),
+                        ),
+                        child: Stack(children: [
+                          Positioned(top: 1, left: 0, right: 0, height: 78,
+                            child: Center(child: trickCardForSeat(northSeat))),
+                          Positioned(bottom: 1, left: 0, right: 0, height: 78,
+                            child: Center(child: trickCardForSeat(southSeat))),
+                          Positioned(left: 1, top: 0, bottom: 0, width: 54,
+                            child: Center(child: trickCardForSeat(westSeat))),
+                          Positioned(right: 1, top: 0, bottom: 0, width: 54,
+                            child: Center(child: trickCardForSeat(eastSeat))),
+                          if (_trick.isEmpty && _myTurn && _phase == 'playing')
+                            const Center(child: Icon(Icons.touch_app_rounded, color: Color(0x55FFFFFF), size: 25)),
+                          if (_phase == 'trick_resolving')
+                            const Positioned(bottom: 3, left: 0, right: 0,
+                              child: Center(child: Text('تحديد الفائز بالأكلة…',
+                                style: TextStyle(color: Colors.white70, fontSize: 9, fontWeight: FontWeight.bold)))),
+                        ]),
+                      );
+                    },
+                  ),
+                ),
+                Positioned(bottom: 9, left: 0, right: 0, child: Center(
+                  child: Text(
+                    _phase == 'bidding' ? 'مرحلة الطلب'
+                      : _phase == 'trump_selection' ? 'اختيار الحكم'
+                      : _phase == 'playing' || _phase == 'trick_resolving' ? 'الأكلة الحالية'
+                      : _phase == 'round_result' ? 'نتيجة الجولة' : 'بانتظار اللاعبين',
+                    style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                )),
+              ]),
+            ),
           ),
-        )),
-      ]),
-    );
+        ]),
+      );
+    });
   }
 
   Widget _biddingPanel() {
