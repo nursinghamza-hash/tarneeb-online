@@ -751,6 +751,7 @@ io.on('connection', socket => {
     io.to(room.code).emit('rematch_votes', [...room.rematchVotes]);
     if (room.aiPractice || room.rematchVotes.size === 4) {
       room.rematchVotes.clear();
+      io.to(room.code).emit('rematch_votes', []);
       room.scores = [0, 0];
       room.roundHistory = [];
       room.dealerSeat = seatToRight(room.dealerSeat);
