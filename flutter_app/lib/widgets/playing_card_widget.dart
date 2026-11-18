@@ -69,7 +69,8 @@ class PlayingCardWidget extends StatelessWidget {
       ],
     );
 
-    return GestureDetector(
+    return RepaintBoundary(
+      child: GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: isPlayable && isLegal ? onTap : null,
       onDoubleTap: isPlayable && isLegal ? onDoubleTap : null,
@@ -152,6 +153,7 @@ class PlayingCardWidget extends StatelessWidget {
             ],
           ),
         ),
+      ),
       ),
     );
   }
