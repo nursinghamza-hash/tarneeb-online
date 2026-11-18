@@ -483,6 +483,25 @@ class _TableScreenState extends State<TableScreen> {
       width: 92,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
+          if (seat != _mySeat && (count as num) > 0)
+            for (var i = 0; i < 6; i++)
+              Positioned(
+                left: -5.0 + i * 9.0,
+                top: 10.0 + (i - 2.5).abs() * 2.2,
+                child: Transform.rotate(
+                  angle: (i - 2.5) * .12,
+                  child: Container(
+                    width: 19, height: 29,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9E1C2D),
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(color: const Color(0xFF4A1018), width: 1),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.35), blurRadius: 3, offset: const Offset(1, 2))],
+                    ),
+                    child: const Center(child: Icon(Icons.style_rounded, color: Color(0x55FFFFFF), size: 11)),
+                  ),
+                ),
+              ),
           AnimatedContainer(
             duration: const Duration(milliseconds: 220),
             width: 54,
