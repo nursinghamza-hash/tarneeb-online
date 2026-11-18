@@ -142,7 +142,12 @@ class _TableScreenState extends State<TableScreen> {
     final playedByOther = hasNewPlayedCard && lastPlayed is Map &&
         (lastPlayed['seat'] as num?)?.toInt() != _mySeat;
     if (playedByOther && _soundEnabled) SystemSound.play(SystemSoundType.click);
+    final previousPhase = _phase;
+    final incomingPhase = (incoming['phase'] ?? 'waiting').toString();
     setState(() {
+      if (incomingPhase == 'trump_selection' && previousPhase != 'trump_selection') {
+        _selectedSuit = 'SPADES';
+      }
       _state = incoming;
       _players = (_state['players'] as List?) ?? _players;
       final handCodes = _hand.map((card) => (card as Map)['code'].toString()).toSet();
@@ -1093,7 +1098,14 @@ class _TableScreenState extends State<TableScreen> {
                 child: Row(children: [
                   Text('لنا: ${_tricks[_myTeam]}', style: const TextStyle(color: kGold, fontSize: 11)),
                   const Spacer(),
-                  Text(bid == null ? 'الطلب' : 'الطلب ${bid['amount']} ${bid['symbol']}', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  Text(
+                    bid == null
+                      ? 'الطلب'
+                      : (bid['symbol'] == null
+                        ? 'الطلب ${bid['amount']} • اختيار الحكم'
+                        : 'الطلب ${bid['amount']} ${bid['symbol']}'),
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
                   const Spacer(),
                   Text('لهم: ${_tricks[1 - _myTeam]}', style: const TextStyle(color: kGold, fontSize: 11)),
                 ]),
