@@ -14,6 +14,12 @@ const {
   canBid,
 } = require('./game_rules');
 const { chooseBid, chooseCard } = require('./bot_ai');
+const {
+  isValidBidAmount,
+  createBidRecord,
+  prepareTrumpSelection,
+  chooseTrump,
+} = require('./auction_rules');
 
 const app = express();
 app.use(cors());
@@ -222,32 +228,28 @@ function nextBidder(room, fromSeat) {
 function startTrumpSelection(room) {
   if (!room.bid) return;
   clearTurnTimer(room);
-  room.phase = 'trump_selection';
-  room.turnSeat = room.bid.seat;
+  const selection = prepareTrumpSelection({
+    bid: room.bid,
+    bidderIsBot: room.players[room.bid.seat]?.isBot === true,
+    pendingBotTrumpSuit: room.pendingBotTrumpSuit,
+  });
+  room.phase = selection.phase;
+  room.turnSeat = selection.turnSeat;
+  room.bid = selection.bid;
+  room.pendingBotTrumpSuit = selection.pendingBotTrumpSuit;
   room.bidTurn = null;
   room.deadline = null;
-
-  // Bots announce their chosen trump immediately after winning the auction.
-  if (room.players[room.bid.seat]?.isBot) {
-    const suit = SUITS.includes(room.pendingBotTrumpSuit) ? room.pendingBotTrumpSuit : SUITS[0];
-    room.bid.suit = suit;
-    room.bid.symbol = suitMeta[suit].symbol;
-    room.pendingBotTrumpSuit = null;
-    room.phase = 'playing';
-    startTurnTimer(room);
-  }
-
+  if (room.phase === 'playing') startTurnTimer(room);
   broadcastState(room);
 }
 
 function selectTrump(room, seat, suit) {
-  if (room.phase !== 'trump_selection' || !room.bid || room.bid.seat !== seat) return false;
-  if (!SUITS.includes(suit)) return false;
-  room.bid.suit = suit;
-  room.bid.symbol = suitMeta[suit].symbol;
-  room.pendingBotTrumpSuit = null;
-  room.phase = 'playing';
-  room.turnSeat = seat;
+  const selection = chooseTrump({ phase: room.phase, bid: room.bid, seat, suit });
+  if (!selection) return false;
+  room.phase = selection.phase;
+  room.turnSeat = selection.turnSeat;
+  room.bid = selection.bid;
+  room.pendingBotTrumpSuit = selection.pendingBotTrumpSuit;
   room.bidTurn = null;
   startTurnTimer(room);
   broadcastState(room);
@@ -275,12 +277,15 @@ function applyBid(room, seat, action) {
   } else {
     const amount = Number(action.amount);
     const suggestedSuit = String(action.suit || '');
-    const min = room.bid ? room.bid.amount + 1 : 7;
-    if (!Number.isInteger(amount) || amount < min || amount > 13) return;
-    room.bid = { seat, amount, suit: null, symbol: null };
-    room.pendingBotTrumpSuit = room.players[seat]?.isBot && SUITS.includes(suggestedSuit)
-      ? suggestedSuit
-      : null;
+    if (!isValidBidAmount(amount, room.bid)) return;
+    const created = createBidRecord({
+      seat,
+      amount,
+      isBot: room.players[seat]?.isBot === true,
+      suggestedSuit,
+    });
+    room.bid = created.bid;
+    room.pendingBotTrumpSuit = created.pendingBotTrumpSuit;
     if (amount === 13) {
       // A maximum Kaboot bid closes the auction; only the winner selects trump.
       startTrumpSelection(room);
