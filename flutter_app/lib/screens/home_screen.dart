@@ -15,6 +15,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  static const List<String> _avatars = ['😎', '🦁', '🐯', '🐼', '🐻', '🦊', '🐺', '👑', '🤠', '🥷', '🧑‍🚀', '🐸'];
+  String _avatar = '😎';
   final _name = TextEditingController();
   final _code = TextEditingController();
   final _server = TextEditingController();
@@ -33,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     _name.text = prefs.getString('player_name') ?? '';
+    _avatar = prefs.getString('player_avatar') ?? '😎';
     final savedServerUrl = prefs.getString('server_url')?.trim();
     if (savedServerUrl != null && savedServerUrl.isNotEmpty &&
         !savedServerUrl.contains('YOUR-TARNEEB-SERVER')) {
@@ -49,6 +52,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _saveName() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('player_name', _name.text.trim());
+    await prefs.setString('player_avatar', _avatar);
     await prefs.setString('server_url', _serverUrl.trim());
   }
 
@@ -121,6 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
       sent = true;
       socket.emit('create_room', {
         'playerName': _name.text.trim(),
+        'avatar': _avatar,
         'targetScore': _target,
         'scoringPreset': _scoringPreset,
         'aiPractice': _aiPractice,
@@ -167,7 +172,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (sent) return;
       sent = true;
       socket.emit('join_room', {
-        'roomCode': code, 'playerName': _name.text.trim(), 'token': token,
+        'roomCode': code, 'playerName': _name.text.trim(), 'token': token, 'avatar': _avatar,
       });
     });
     socket.on('room_joined', (dynamic data) async {
@@ -290,6 +295,38 @@ class _HomeScreenState extends State<HomeScreen> {
                       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16),
                         borderSide: BorderSide(color: Colors.white.withOpacity(.12))),
                     ),
+                  ),
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: const Text('اختر صورتك على الطاولة',
+                      style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 9,
+                    runSpacing: 8,
+                    children: _avatars.map((avatar) {
+                      final selected = _avatar == avatar;
+                      return InkWell(
+                        onTap: () => setState(() => _avatar = avatar),
+                        borderRadius: BorderRadius.circular(30),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 130),
+                          width: 43,
+                          height: 43,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: selected ? const Color(0xFFFFC928) : Colors.white.withOpacity(.07),
+                            border: Border.all(color: selected ? const Color(0xFFFFE28A) : Colors.white24, width: selected ? 2 : 1),
+                            boxShadow: selected ? [const BoxShadow(color: Color(0x55FFC928), blurRadius: 8)] : const [],
+                          ),
+                          child: Text(avatar, style: TextStyle(fontSize: selected ? 25 : 22)),
+                        ),
+                      );
+                    }).toList(),
                   ),
                   const SizedBox(height: 16),
                   Container(
