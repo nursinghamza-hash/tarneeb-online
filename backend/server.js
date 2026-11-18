@@ -515,7 +515,7 @@ function beginCutPhase(room) {
 }
 function startGame(room, player) {
   if (!player || player.token !== room.hostToken || room.status !== 'waiting') return;
-  if (room.players.some(p => !p)) return io.to(player.id).emit('room_error', 'تحتاج الطاولة إلى 4 لاعبين لبدء اللعب');
+  if (room.players.some(p => !p || (!p.isBot && !p.connected))) return io.to(player.id).emit('room_error', 'تحتاج الطاولة إلى 4 لاعبين متصلين لبدء اللعب');
   if (![1, 2, 3].includes(room.partnerSeat) || !room.players[room.partnerSeat]) {
     return io.to(player.id).emit('room_error', 'اختر شريكك قبل بدء اللعب');
   }
@@ -538,7 +538,7 @@ io.on('connection', socket => {
     if (!room || !player || player.token !== room.hostToken || room.status !== 'waiting') return;
     // The host chooses one of the three other occupied seats as their partner.
     // The remaining two players form the opposing team.
-    if (![1, 2, 3].includes(partnerSeat) || !room.players[partnerSeat]) {
+    if (![1, 2, 3].includes(partnerSeat) || !room.players[partnerSeat] || (!room.players[partnerSeat].isBot && !room.players[partnerSeat].connected)) {
       io.to(player.id).emit('notice', 'اختر لاعباً موجوداً على الطاولة ليكون شريكك');
       return;
     }
