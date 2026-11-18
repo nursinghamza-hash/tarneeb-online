@@ -175,6 +175,12 @@ class _TableScreenState extends State<TableScreen> {
     final previousTurn = _turnSeat;
     final incomingPhase = (incoming['phase'] ?? 'waiting').toString();
     final incomingTurn = (incoming['turnSeat'] as num?)?.toInt() ?? -1;
+    final previousBid = _state['bid'] as Map?;
+    final incomingBid = incoming['bid'] as Map?;
+    final newContractBid = incomingBid != null &&
+        (previousBid == null ||
+            previousBid['amount'] != incomingBid['amount'] ||
+            previousBid['seat'] != incomingBid['seat']);
     if (incomingPhase == 'round_result' && previousPhase != 'round_result') {
       final lastRound = incoming['lastRound'] as Map?;
       _playSound(lastRound?['bidMet'] == true ? GameSound.success : GameSound.fail);
@@ -182,6 +188,8 @@ class _TableScreenState extends State<TableScreen> {
       _playSound(GameSound.trick);
     } else if (playedByOther) {
       _playSound(GameSound.card);
+    } else if (newContractBid) {
+      _playSound(GameSound.bid);
     } else if (incomingPhase == 'trump_selection' && previousPhase != 'trump_selection') {
       _playSound(GameSound.bid);
     } else if ((previousRoundNumber == null && incomingPhase == 'bidding') ||
