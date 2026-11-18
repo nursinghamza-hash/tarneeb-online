@@ -82,6 +82,7 @@ jobs:
           node --check game_rules.js
           node --check bot_ai.js
           node --check auction_rules.js
+          node --check debug_tools.js
           npm test
 
       - name: Get Flutter dependencies
