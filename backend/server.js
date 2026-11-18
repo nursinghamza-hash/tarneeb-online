@@ -61,8 +61,14 @@ function makeDeck() {
   }
   return deck;
 }
-function sorted(hand) {
-  return [...hand].sort((a, b) => SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit) || b.rank - a.rank);
+function sorted(hand, trumpSuit = null) {
+  return [...hand].sort((a, b) => {
+    if (trumpSuit) {
+      if (a.suit === trumpSuit && b.suit !== trumpSuit) return -1;
+      if (b.suit === trumpSuit && a.suit !== trumpSuit) return 1;
+    }
+    return SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit) || b.rank - a.rank;
+  });
 }
 function rankLabel(rank) {
   return ({ 14: 'A', 13: 'K', 12: 'Q', 11: 'J' })[rank] || String(rank);
@@ -114,7 +120,7 @@ function stateFor(room, seat) {
     aiPractice: room.aiPractice === true,
     players: publicPlayers(room),
     mySeat: seat,
-    myHand: room.hands ? sorted(room.hands[seat]) : [],
+    myHand: room.hands ? sorted(room.hands[seat], room.bid?.suit || null) : [],
     handCounts: room.hands ? room.hands.map(h => h.length) : [0, 0, 0, 0],
     // Public played-card history only; hidden hands remain server-private.
     playedCards: room.playedCards || [],
@@ -625,7 +631,7 @@ io.on('connection', socket => {
       swaps += 1;
     }
 
-    room.hands = room.hands.map(sorted);
+    room.hands = room.hands.map(hand => sorted(hand, room.bid?.suit || null));
     broadcastState(room);
     socket.emit('notice', swaps
       ? 'تم تعزيز يدك في وضع فحص التطوير (' + swaps + ' تبديلات)'
