@@ -20,7 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _server = TextEditingController();
   int _target = 31;
   String _scoringPreset = 'house_16_14';
-  bool _aiPractice = false;
+  bool _aiPractice = true;
   bool _busy = false;
   String _serverUrl = const String.fromEnvironment(
     'SERVER_URL',
@@ -355,7 +355,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ElevatedButton.icon(
                       onPressed: _busy ? null : _createRoom,
                       icon: const Icon(Icons.add_circle_outline),
-                      label: Text(_busy ? 'جارٍ الاتصال...' : 'إنشاء طاولة جديدة',
+                      label: Text(_busy ? 'جارٍ الاتصال...' : (_aiPractice ? 'ابدأ اللعب ضد الذكاء الاصطناعي' : 'إنشاء طاولة جديدة'),
                         style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
