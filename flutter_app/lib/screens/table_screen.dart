@@ -60,6 +60,15 @@ class _TableScreenState extends State<TableScreen> {
   String get _dealMode => (_state['dealMode'] ?? 'random').toString();
   int get _myTeam => _teamForSeat(_mySeat);
   int _teamForSeat(int seat) => (seat == 0 || seat == _partnerSeat) ? 0 : 1;
+
+  int _partnerOfSeat(int seat) {
+    final hostPartner = _partnerSeat ?? 2;
+    if (seat == 0) return hostPartner;
+    if (seat == hostPartner) return 0;
+    return [0, 1, 2, 3].firstWhere(
+      (candidate) => candidate != seat && candidate != 0 && candidate != hostPartner,
+    );
+  }
   int get _turnSeat => (_state['turnSeat'] as num?)?.toInt() ?? -1;
   String get _phase => (_state['phase'] ?? 'waiting').toString();
   String get _status => (_state['status'] ?? 'waiting').toString();
@@ -669,7 +678,7 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   Widget _scoreboard() {
-    final partnerSeat = _partnerSeat ?? ((_mySeat + 2) % 4);
+    final partnerSeat = _partnerOfSeat(_mySeat);
     final sideSeats = [1, 2, 3, 0]
         .map((offset) => (_mySeat + offset) % 4)
         .where((seat) => seat != _mySeat && seat != partnerSeat)
@@ -712,7 +721,7 @@ class _TableScreenState extends State<TableScreen> {
 
   Widget _centerTable() {
     final southSeat = _mySeat;
-    final northSeat = _partnerSeat ?? ((southSeat + 2) % 4);
+    final northSeat = _partnerOfSeat(southSeat);
     final sideSeats = [1, 2, 3, 0]
         .map((offset) => (southSeat + offset) % 4)
         .where((seat) => seat != southSeat && seat != northSeat)
