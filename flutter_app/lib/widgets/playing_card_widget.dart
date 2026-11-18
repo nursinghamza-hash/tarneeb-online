@@ -7,6 +7,7 @@ class PlayingCardWidget extends StatelessWidget {
   final bool isCompact;
   final bool isHand;
   final bool isSelected;
+  final bool isRecommended;
   final bool isPlayable;
   final bool isLegal;
   final VoidCallback? onTap;
@@ -19,6 +20,7 @@ class PlayingCardWidget extends StatelessWidget {
     this.isCompact = false,
     this.isHand = false,
     this.isSelected = false,
+    this.isRecommended = false,
     this.isPlayable = true,
     this.isLegal = true,
     this.onTap,
@@ -76,21 +78,36 @@ class PlayingCardWidget extends StatelessWidget {
             color: const Color(0xFFFFFEFC),
             borderRadius: BorderRadius.circular(isMini ? 4 : 7),
             border: Border.all(
-              color: isSelected ? const Color(0xFFE2B94C) : const Color(0xFFC9C9C9),
-              width: isSelected ? 2 : .75,
+              color: isSelected
+                  ? const Color(0xFFE2B94C)
+                  : isRecommended ? const Color(0xFF10B981) : const Color(0xFFC9C9C9),
+              width: (isSelected || isRecommended) ? 2 : .75,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(isSelected ? .38 : .24),
-                blurRadius: isSelected ? 7 : 3,
-                offset: Offset(0, isSelected ? 4 : 2),
+                color: Colors.black.withOpacity((isSelected || isRecommended) ? .38 : .24),
+                blurRadius: (isSelected || isRecommended) ? 7 : 3,
+                offset: Offset(0, (isSelected || isRecommended) ? 4 : 2),
               ),
               if (isSelected)
                 const BoxShadow(color: Color(0x55E2B94C), blurRadius: 5),
+              if (isRecommended)
+                const BoxShadow(color: Color(0x5534D399), blurRadius: 7),
             ],
           ),
           child: Stack(
             children: [
+              if (isRecommended && !isMini)
+                Positioned(
+                  top: -1,
+                  left: 0,
+                  right: 0,
+                  child: Center(child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(5)),
+                    child: const Text('★ اقتراح', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                  )),
+                ),
               Positioned(left: 4, top: 4, child: corner()),
               Positioned(
                 right: 4,

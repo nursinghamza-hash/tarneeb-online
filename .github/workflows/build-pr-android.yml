@@ -1,0 +1,92 @@
+name: Build Tarneeb Android APK (Pull Request)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "flutter_app/**"
+      - ".github/workflows/build-pr-android.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android platform files
+        working-directory: flutter_app
+        run: flutter create --platforms=android --project-name tarneeb_online --org com.tarneeb.online .
+
+      - name: Configure Android app label and network permissions
+        working-directory: flutter_app
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("android/app/src/main/AndroidManifest.xml")
+          manifest = path.read_text()
+          root_start = manifest.find("<manifest")
+          root_end = manifest.find(">", root_start) + 1
+          if root_start < 0 or root_end <= 0:
+              raise SystemExit("Invalid AndroidManifest.xml: manifest tag not found")
+          for permission in ("android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE"):
+              if permission not in manifest:
+                  line = '\\n    <uses-permission android:name="' + permission + '"/>'
+                  manifest = manifest[:root_end] + line + manifest[root_end:]
+                  root_end += len(line)
+
+          app_start = manifest.find("<application")
+          app_end = manifest.find(">", app_start) + 1
+          if app_start < 0 or app_end <= 0:
+              raise SystemExit("Invalid AndroidManifest.xml: application tag not found")
+          app_tag = manifest[app_start:app_end]
+          label_start = app_tag.find('android:label="')
+          if label_start >= 0:
+              value_start = label_start + len('android:label="')
+              value_end = app_tag.find('"', value_start)
+              app_tag = app_tag[:value_start] + "تحدي الطرنيب" + app_tag[value_end:]
+          else:
+              app_tag = app_tag[:-1] + ' android:label="تحدي الطرنيب">'
+          manifest = manifest[:app_start] + app_tag + manifest[app_end:]
+          path.write_text(manifest)
+          PY
+
+      - name: Get Flutter dependencies
+        working-directory: flutter_app
+        run: flutter pub get
+
+      - name: Analyze Flutter application source
+        working-directory: flutter_app
+        run: |
+          # flutter create generates a demo widget test for the sample app; this project has its own app entry point.
+          rm -rf test
+          flutter analyze --no-fatal-infos lib/
+
+      - name: Build release APK
+        working-directory: flutter_app
+        run: flutter build apk --release --dart-define=SERVER_URL=https://tarneeb-online-server.onrender.com
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tarneeb-Online-PR-Release-APK
+          path: flutter_app/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14

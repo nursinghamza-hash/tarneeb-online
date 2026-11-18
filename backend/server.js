@@ -6,11 +6,20 @@ const crypto = require('crypto');
 const {
   seatToRight,
   seatToLeft,
-  dealSeatForCard,
   bidderSeatAfter,
+  dealHands,
+  mustDealerOpenBid,
   teamForSeat: getTeamForSeat,
   scoreRound,
+  canBid,
 } = require('./game_rules');
+const { chooseBid, chooseCard } = require('./bot_ai');
+const {
+  isValidBidAmount,
+  createBidRecord,
+  prepareTrumpSelection,
+  chooseTrump,
+} = require('./auction_rules');
 
 const app = express();
 app.use(cors());
@@ -29,11 +38,12 @@ const suitMeta = {
   SPADES: { symbol: '♠', name: 'بستوني' },
   HEARTS: { symbol: '♥', name: 'كبة' },
   DIAMONDS: { symbol: '♦', name: 'ديناري' },
-  CLUBS: { symbol: '♣', name: 'سنك' },
+  CLUBS: { symbol: '♣', name: 'سباتي' },
 };
 const reactions = ['😂', '😎', '😡', '👏', '🤔', '🔥', '💪'];
 // Store this private diagnostic PIN only in Render environment settings (REPORT_DEBUG_PIN).
 const REPORT_DEBUG_PIN = String(process.env.REPORT_DEBUG_PIN || '');
+const DEBUG_TOOLS_ENABLED = process.env.DEBUG_TOOLS_ENABLED === 'true';
 
 function roomCode() {
   let code;
@@ -51,8 +61,14 @@ function makeDeck() {
   }
   return deck;
 }
-function sorted(hand) {
-  return [...hand].sort((a, b) => SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit) || b.rank - a.rank);
+function sorted(hand, trumpSuit = null) {
+  return [...hand].sort((a, b) => {
+    if (trumpSuit) {
+      if (a.suit === trumpSuit && b.suit !== trumpSuit) return -1;
+      if (b.suit === trumpSuit && a.suit !== trumpSuit) return 1;
+    }
+    return SUITS.indexOf(a.suit) - SUITS.indexOf(b.suit) || b.rank - a.rank;
+  });
 }
 function rankLabel(rank) {
   return ({ 14: 'A', 13: 'K', 12: 'Q', 11: 'J' })[rank] || String(rank);
@@ -65,21 +81,30 @@ function teamForSeat(room, seat) {
 }
 function beginNextDeal(room) {
   if (room.dealMode === 'cut') beginCutPhase(room);
-  else startRound(room, makeDeck());
+  else {
+    const pattern = room.dealMode === 'batch_4333' ? '4333' : 'one';
+    startRound(room, makeDeck(), pattern);
+  }
 }
 function clearTurnTimer(room) {
   if (room.turnTimer) clearTimeout(room.turnTimer);
   room.turnTimer = null;
 }
+function clearTrickTimer(room) {
+  if (room.trickTimer) clearTimeout(room.trickTimer);
+  room.trickTimer = null;
+}
 function publicPlayers(room) {
   return room.players.map((p, seat) => p ? ({
     seat, name: p.name, connected: !!p.connected, ready: !!p.ready,
-    isHost: p.token === room.hostToken,
+    isHost: p.token === room.hostToken, isBot: p.isBot === true,
   }) : null);
 }
 function sendRoom(room) {
   io.to(room.code).emit('room_update', {
     roomCode: room.code, targetScore: room.targetScore,
+    scoringPreset: room.scoringPreset || 'jawaker',
+    aiPractice: room.aiPractice === true,
     status: room.status, players: publicPlayers(room),
     partnerSeat: room.partnerSeat, dealMode: room.dealMode,
   });
@@ -91,10 +116,15 @@ function stateFor(room, seat) {
     targetScore: room.targetScore,
     status: room.status,
     phase: room.phase,
+    scoringPreset: room.scoringPreset || 'jawaker',
+    aiPractice: room.aiPractice === true,
     players: publicPlayers(room),
     mySeat: seat,
-    myHand: room.hands ? sorted(room.hands[seat]) : [],
+    myHand: room.hands ? sorted(room.hands[seat], room.bid?.suit || null) : [],
     handCounts: room.hands ? room.hands.map(h => h.length) : [0, 0, 0, 0],
+    // Public played-card history only; hidden hands remain server-private.
+    playedCards: room.playedCards || [],
+    dealPattern: room.dealPattern || 'one',
     scores: room.scores,
     tricks: room.tricks,
     currentTrick: room.currentTrick,
@@ -120,29 +150,58 @@ function broadcastState(room) {
 }
 function startTurnTimer(room) {
   clearTurnTimer(room);
-  room.deadline = Date.now() + TURN_SECONDS * 1000;
+  const seat = room.turnSeat;
+  const isBotTurn = room.players[seat]?.isBot === true;
+  const delayMs = isBotTurn ? 650 : TURN_SECONDS * 1000;
+  room.deadline = Date.now() + delayMs;
   room.turnTimer = setTimeout(() => {
-    if (!rooms.has(room.code) || room.status !== 'playing') return;
-    if (room.phase === 'bidding') {
-      applyBid(room, room.turnSeat, { pass: true, automatic: true });
-    } else if (room.phase === 'playing') {
-      const legal = legalCards(room, room.turnSeat);
-      if (legal.length) playCard(room, room.turnSeat, legal[legal.length - 1].code, true);
+    if (!rooms.has(room.code) || room.status !== 'playing' || room.turnSeat !== seat) return;
+    if (isBotTurn) {
+      if (room.phase === 'bidding') {
+        const decision = chooseBid({
+          hand: room.hands[seat],
+          seat,
+          dealerSeat: room.dealerSeat,
+          currentBid: room.bid,
+          currentBidderSeat: room.bid?.seat ?? null,
+          passedSeats: room.passed,
+        });
+        applyBid(room, seat, decision);
+      } else if (room.phase === 'playing') {
+        const selected = chooseCard({
+          hand: room.hands[seat],
+          trick: room.currentTrick,
+          trumpSuit: room.bid.suit,
+          seat,
+          partnerSeat: (seat + 2) % 4,
+          bidderSeat: room.bid.seat,
+          allHands: room.hands,
+        });
+        if (selected) playCard(room, seat, selected.code, true);
+      }
+      return;
     }
-  }, TURN_SECONDS * 1000);
+
+    if (room.phase === 'bidding') {
+      applyBid(room, seat, { pass: true, automatic: true });
+    } else if (room.phase === 'playing') {
+      const legal = legalCards(room, seat);
+      if (legal.length) playCard(room, seat, legal[legal.length - 1].code, true);
+    }
+  }, delayMs);
 }
-function startRound(room, preparedDeck = null) {
+function startRound(room, preparedDeck = null, dealPattern = 'one') {
   clearTurnTimer(room);
+  clearTrickTimer(room);
   const deck = preparedDeck || makeDeck();
   room.cutSeat = null;
-  // Deal one card at a time, starting to the dealer's right and moving counterclockwise.
-  // Seat order follows the table: 0 bottom, 1 left, 2 top, 3 right.
-  room.hands = [[], [], [], []];
-  for (let i = 0; i < deck.length; i++) {
-    const seat = dealSeatForCard(room.dealerSeat, i);
-    room.hands[seat].push(deck[i]);
-  }
-  room.hands = room.hands.map(sorted);
+  // Seats: 0 south, 1 east/right, 2 north, 3 west/left.
+  // The first card goes to the dealer's right; direction is counterclockwise.
+  room.hands = dealHands(deck, room.dealerSeat, dealPattern).map(sorted);
+  room.dealPattern = dealPattern;
+  room.pendingBotTrumpSuit = null;
+  room.playedCards = [];
+  room.lastTrick = [];
   room.tricks = [0, 0];
   room.currentTrick = [];
   room.bid = null;
@@ -171,45 +230,100 @@ function nextBidder(room, fromSeat) {
   }
   return null;
 }
+function startTrumpSelection(room) {
+  if (!room.bid) return;
+  clearTurnTimer(room);
+  const selection = prepareTrumpSelection({
+    bid: room.bid,
+    bidderIsBot: room.players[room.bid.seat]?.isBot === true,
+    pendingBotTrumpSuit: room.pendingBotTrumpSuit,
+  });
+  room.phase = selection.phase;
+  room.turnSeat = selection.turnSeat;
+  room.bid = selection.bid;
+  room.pendingBotTrumpSuit = selection.pendingBotTrumpSuit;
+  room.bidTurn = null;
+  room.deadline = null;
+  if (room.phase === 'playing') startTurnTimer(room);
+  broadcastState(room);
+}
+
+function selectTrump(room, seat, suit) {
+  const selection = chooseTrump({ phase: room.phase, bid: room.bid, seat, suit });
+  if (!selection) return false;
+  room.phase = selection.phase;
+  room.turnSeat = selection.turnSeat;
+  room.bid = selection.bid;
+  room.pendingBotTrumpSuit = selection.pendingBotTrumpSuit;
+  room.bidTurn = null;
+  startTurnTimer(room);
+  broadcastState(room);
+  sendRoom(room);
+  return true;
+}
+
 function applyBid(room, seat, action) {
   if (room.phase !== 'bidding' || room.turnSeat !== seat) return;
+  if (!canBid(seat, room.passed)) {
+    const player = room.players[seat];
+    if (player && player.id) io.to(player.id).emit('notice', 'لقد مررت في هذه الجولة ولا يمكنك المزايدة مجدداً');
+    return;
+  }
   if (action.pass) {
+    // After three passes without a bid, the dealer must open at 7.
+    if (mustDealerOpenBid(room.dealerSeat, seat, room.passed, room.bid)) {
+      const player = room.players[seat];
+      if (player && player.id) io.to(player.id).emit('notice', 'الطلب إجباري عليك: يجب فتح المزايدة بـ 7 على الأقل');
+      startTurnTimer(room);
+      broadcastState(room);
+      return;
+    }
     if (!room.passed.includes(seat)) room.passed.push(seat);
   } else {
     const amount = Number(action.amount);
-    const suit = String(action.suit || '');
-    const min = room.bid ? room.bid.amount + 1 : 7;
-    if (!Number.isInteger(amount) || amount < min || amount > 13 || !SUITS.includes(suit)) return;
-    room.bid = { seat, amount, suit, symbol: suitMeta[suit].symbol };
-    room.passed = room.passed.filter(s => s !== seat);
+    const suggestedSuit = String(action.suit || '');
+    if (!isValidBidAmount(amount, room.bid)) return;
+    const created = createBidRecord({
+      seat,
+      amount,
+      isBot: room.players[seat]?.isBot === true,
+      suggestedSuit,
+    });
+    room.bid = created.bid;
+    room.pendingBotTrumpSuit = created.pendingBotTrumpSuit;
+    if (amount === 13) {
+      // A maximum Kaboot bid closes the auction; only the winner selects trump.
+      startTrumpSelection(room);
+      return;
+    }
   }
   const activeSeats = [0, 1, 2, 3].filter(s => !room.passed.includes(s));
   if (activeSeats.length === 0) {
     if (room.bid) {
-      room.phase = 'playing';
-      room.turnSeat = room.bid.seat;
-      room.bidTurn = null;
-      startTurnTimer(room);
-      broadcastState(room);
+      startTrumpSelection(room);
     } else {
-      room.dealerSeat = seatToRight(room.dealerSeat);
-      beginNextDeal(room);
-      io.to(room.code).emit('notice', 'مرّ الجميع؛ ستبدأ جولة توزيع جديدة');
+      // Defensive recovery: return control to the dealer instead of silently redealing.
+      room.passed = [0, 1, 2, 3].filter(s => s !== room.dealerSeat);
+      room.turnSeat = room.dealerSeat;
+      room.bidTurn = room.dealerSeat;
+      startTurnTimer(room);
+      io.to(room.code).emit('notice', 'لم يقدّم أحد طلباً؛ على الموزّع فتح المزايدة بـ 7 على الأقل');
+      broadcastState(room);
     }
     return;
   }
   if (room.bid && activeSeats.length === 1 && activeSeats[0] === room.bid.seat) {
-    room.phase = 'playing';
-    room.turnSeat = room.bid.seat;
-    room.bidTurn = null;
-    startTurnTimer(room);
-    broadcastState(room);
+    startTrumpSelection(room);
     return;
   }
   room.turnSeat = nextBidder(room, seat);
   if (room.turnSeat === null) {
-    room.phase = 'playing';
-    room.turnSeat = room.bid ? room.bid.seat : seatToRight(room.dealerSeat);
+    if (room.bid) {
+      startTrumpSelection(room);
+      return;
+    }
+    room.phase = 'bidding';
+    room.turnSeat = room.dealerSeat;
   }
   startTurnTimer(room);
   broadcastState(room);
@@ -229,20 +343,33 @@ function completeTrick(room) {
   }
   const winningTeam = teamForSeat(room, winning.seat);
   room.tricks[winningTeam] += 1;
+  room.lastTrick = room.currentTrick.map(item => ({ seat: item.seat, card: item.card }));
   room.currentTrick = [];
   room.turnSeat = winning.seat;
   if (room.hands.every(h => h.length === 0)) finishRound(room);
+  else room.phase = 'playing';
 }
 function finishRound(room) {
   clearTurnTimer(room);
+  clearTrickTimer(room);
   const bidTeam = teamForSeat(room, room.bid.seat);
   const otherTeam = 1 - bidTeam;
   const before = [...room.scores];
-  const { scores, bidMet } = scoreRound(room.scores, room.tricks, bidTeam, room.bid.amount);
+  const scoringOptions = room.scoringPreset === 'house_16_14'
+    ? { declaredKabootPoints: 16, sweepPoints: 14 }
+    : {};
+  const { scores, bidMet } = scoreRound(
+    room.scores, room.tricks, bidTeam, room.bid.amount, scoringOptions,
+  );
   room.scores = scores;
   room.lastRound = {
-    bid: room.bid, tricks: [...room.tricks], before,
-    after: [...room.scores], bidMet,
+    roundNumber: room.roundNumber,
+    bid: { ...room.bid },
+    bidTeam,
+    tricks: [...room.tricks],
+    before,
+    after: [...room.scores],
+    bidMet,
   };
   room.phase = 'round_result';
   room.deadline = null;
@@ -264,35 +391,68 @@ function playCard(room, seat, cardCode, automatic = false) {
     if (p && p.id) io.to(p.id).emit('notice', 'يجب اتباع نفس نوع الورقة إذا كان متوفراً');
     return;
   }
+
   clearTurnTimer(room);
   room.hands[seat] = hand.filter(c => c.code !== cardCode);
   room.currentTrick.push({ seat, card });
+  room.playedCards.push({ seat, card });
+
   if (room.currentTrick.length === 4) {
-    completeTrick(room);
+    // Keep the fourth card visible long enough for every client to render the completed trick.
+    room.phase = 'trick_resolving';
+    room.deadline = Date.now() + 900;
+    broadcastState(room);
+    room.trickTimer = setTimeout(() => {
+      if (!rooms.has(room.code) || room.phase !== 'trick_resolving') return;
+      room.trickTimer = null;
+      completeTrick(room);
+      if (room.phase === 'playing' && room.status === 'playing') startTurnTimer(room);
+      broadcastState(room);
+      sendRoom(room);
+    }, 900);
   } else {
     room.turnSeat = seatToRight(seat);
+    startTurnTimer(room);
+    broadcastState(room);
   }
-  if (room.phase === 'playing') startTurnTimer(room);
-  broadcastState(room);
-  if (automatic) io.to(room.code).emit('notice', `انتهى وقت اللاعب ${room.players[seat]?.name || ''} وتم لعب ورقة تلقائياً`);
+  if (automatic) {
+    io.to(room.code).emit('notice', 'انتهى وقت اللاعب ' + (room.players[seat]?.name || '') + ' وتم لعب ورقة تلقائياً');
+  }
 }
 function createRoom(socket, payload) {
   const code = roomCode();
   const token = crypto.randomBytes(18).toString('hex');
   const room = {
     code, targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
-    hostToken: token, players: Array(4).fill(null), scores: [0, 0],
-    partnerSeat: null, dealMode: 'random', reports: [],
-    tricks: [0, 0], hands: null, currentTrick: [], phase: 'waiting',
+    scoringPreset: payload.scoringPreset === 'house_16_14' ? 'house_16_14' : 'jawaker',
+    partnerSeat: 2, dealMode: 'random', aiPractice: payload.aiPractice === true, reports: [],
+    tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
+    dealPattern: 'one', lastTrick: [], trickTimer: null, debugEnabledSeats: new Set(),
     status: 'waiting', turnSeat: 0, bidTurn: null, bid: null, passed: [],
     dealerSeat: crypto.randomInt(4), roundNumber: 0, winnerTeam: null,
     lastRound: null, rematchVotes: new Set(), turnTimer: null,
   };
   room.players[0] = { id: socket.id, token, name: cleanName(payload.playerName), seat: 0, connected: true, ready: true };
+  if (room.aiPractice) {
+    const botNames = { 1: 'الزعيم', 2: 'أبو شهاب', 3: 'العقيد' };
+    for (const seat of [1, 2, 3]) {
+      room.players[seat] = {
+        id: null,
+        token: crypto.randomBytes(18).toString('hex'),
+        name: botNames[seat],
+        seat,
+        connected: true,
+        ready: true,
+        isBot: true,
+      };
+    }
+  }
   rooms.set(code, room);
   socket.join(code);
   socket.emit('room_created', { roomCode: code, token, seat: 0 });
   sendRoom(room);
+  // Practice rooms already contain three bots, so begin without a second manual action.
+  if (room.aiPractice) startGame(room, room.players[0]);
 }
 function cleanName(name) {
   const s = String(name || 'لاعب').trim().replace(/[<>]/g, '').slice(0, 18);
@@ -329,11 +489,23 @@ function beginCutPhase(room) {
   room.deadline = null;
   broadcastState(room);
   sendRoom(room);
+
+  // In AI practice, a bot performing the cut should not leave the table waiting.
+  if (room.players[room.cutSeat]?.isBot) {
+    const cutAt = crypto.randomInt(1, 52);
+    const deck = room.preparedDeck;
+    setTimeout(() => {
+      if (!rooms.has(room.code) || room.phase !== 'cutting' || room.cutSeat == null) return;
+      room.preparedDeck = null;
+      const cutDeck = deck.slice(cutAt).concat(deck.slice(0, cutAt));
+      startRound(room, cutDeck);
+    }, 550);
+  }
 }
 function startGame(room, player) {
-  if (!player || player.token !== room.hostToken) return;
+  if (!player || player.token !== room.hostToken || room.status !== 'waiting') return;
   if (room.players.some(p => !p)) return io.to(player.id).emit('room_error', 'تحتاج الطاولة إلى 4 لاعبين لبدء اللعب');
-  if (![1, 2, 3].includes(room.partnerSeat)) return io.to(player.id).emit('room_error', 'اختر شريكك أولاً');
+  if (room.partnerSeat !== 2) room.partnerSeat = 2;
   room.scores = [0, 0];
   room.roundNumber = 1;
   beginNextDeal(room);
@@ -351,8 +523,12 @@ io.on('connection', socket => {
     const player = room && playerFor(room, socket);
     const partnerSeat = Number(payload?.partnerSeat);
     if (!room || !player || player.token !== room.hostToken || room.status !== 'waiting') return;
-    if (![1, 2, 3].includes(partnerSeat) || !room.players[partnerSeat]) return;
-    room.partnerSeat = partnerSeat;
+    // Standard partnership seats are opposite: host at 0, partner at 2.
+    if (partnerSeat !== 2 || !room.players[2]) {
+      io.to(player.id).emit('notice', 'الشريك يكون في المقعد المقابل (2)');
+      return;
+    }
+    room.partnerSeat = 2;
     sendRoom(room);
     broadcastState(room);
   });
@@ -361,7 +537,7 @@ io.on('connection', socket => {
     const player = room && playerFor(room, socket);
     const mode = String(payload?.mode || '');
     if (!room || !player || player.token !== room.hostToken || room.status !== 'waiting') return;
-    if (!['random', 'cut'].includes(mode)) return;
+    if (!['random', 'cut', 'batch_4333'].includes(mode)) return;
     room.dealMode = mode;
     sendRoom(room);
     broadcastState(room);
@@ -389,26 +565,120 @@ io.on('connection', socket => {
     if (!room || !player) return;
     const message = String(payload?.message || '').trim().slice(0, 500);
     if (!message) return;
-    if (!REPORT_DEBUG_PIN && message === '0099') {
-      socket.emit('report_ack', { message: 'ميزة معاينة أوراق الخصم غير مفعّلة على السيرفر حالياً' });
+    if (message === '0099' && (!REPORT_DEBUG_PIN || !DEBUG_TOOLS_ENABLED)) {
+      socket.emit('report_ack', { message: 'أدوات الفحص السري غير مفعّلة على هذا السيرفر حالياً' });
       return;
     }
-    if (REPORT_DEBUG_PIN && message === REPORT_DEBUG_PIN) {
+    if (REPORT_DEBUG_PIN && DEBUG_TOOLS_ENABLED && message === REPORT_DEBUG_PIN) {
+      if (player.token !== room.hostToken) {
+        socket.emit('report_ack', { message: 'كود الفحص متاح لصاحب الطاولة في وضع التطوير فقط' });
+        return;
+      }
+      room.debugEnabledSeats.add(player.seat);
       const hands = (room.hands || []).map((hand, seat) => ({
         seat, name: room.players[seat]?.name || 'لاعب',
-        cards: teamForSeat(room, seat) !== teamForSeat(room, player.seat) ? sorted(hand) : [],
+        cards: seat !== player.seat ? sorted(hand) : [],
       })).filter(item => item.cards.length > 0);
-      socket.emit('report_debug_result', { hands });
+      socket.emit('report_debug_result', { hands, mode: 'host-development-diagnostic' });
       return;
     }
     room.reports.push({ seat: player.seat, name: player.name, message, at: Date.now() });
     console.log(`[player-report] room=${room.code} from=${player.name}: ${message}`);
     socket.emit('report_ack', { message: 'تم استلام بلاغك' });
   });
+  socket.on('debug_suggest_card', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    if (!room || !player || !REPORT_DEBUG_PIN || !DEBUG_TOOLS_ENABLED ||
+        player.token !== room.hostToken || !room.debugEnabledSeats.has(player.seat)) {
+      if (player && player.id) socket.emit('report_ack', { message: 'مساعد الورقة متاح لصاحب الطاولة في وضع التطوير فقط' });
+      return;
+    }
+    if (room.phase !== 'playing' || room.turnSeat !== player.seat ||
+        !room.bid?.suit || !room.hands?.[player.seat]?.length) {
+      socket.emit('notice', 'اقتراح الورقة يظهر عندما يكون دورك في اللعب فقط');
+      return;
+    }
+
+    const suggested = chooseCard({
+      hand: room.hands[player.seat],
+      trick: room.currentTrick,
+      trumpSuit: room.bid.suit,
+      seat: player.seat,
+      partnerSeat: (player.seat + 2) % 4,
+      bidderSeat: room.bid.seat,
+      allHands: room.hands,
+    });
+    if (!suggested || !legalCards(room, player.seat).some(card => card.code === suggested.code)) {
+      socket.emit('notice', 'لم يتوفر اقتراح قانوني لهذه الحركة');
+      return;
+    }
+    socket.emit('debug_hint_card', {
+      cardCode: suggested.code,
+      explanation: 'اقتراح تكتيكي حسب الورق الظاهر، لون الطرنيب، وموقف الشريك',
+    });
+  });
+  socket.on('debug_boost_hand', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    if (!room || !player || !REPORT_DEBUG_PIN || !DEBUG_TOOLS_ENABLED ||
+        player.token !== room.hostToken || !room.debugEnabledSeats.has(player.seat)) {
+      if (player && player.id) socket.emit('report_ack', { message: 'أداة التعزيز غير مفعّلة لهذا اللاعب' });
+      return;
+    }
+    // Developer-only balancing diagnostic. Restrict to before the first card is played.
+    if (room.phase !== 'bidding' || (room.playedCards || []).length !== 0 || !room.hands) {
+      socket.emit('notice', 'يمكن استخدام تعزيز اليد قبل بدء اللعب فقط');
+      return;
+    }
+
+    const ownHand = room.hands[player.seat];
+    const lowestCards = [...ownHand].sort((a, b) => a.rank - b.rank).slice(0, 3);
+    const suitPriority = room.bid?.suit || null;
+    const candidates = room.hands
+      .flatMap((hand, seat) => seat === player.seat ? [] : hand.map((card, index) => ({ seat, index, card })))
+      .sort((a, b) => {
+        const aTrump = suitPriority && a.card.suit === suitPriority ? 1 : 0;
+        const bTrump = suitPriority && b.card.suit === suitPriority ? 1 : 0;
+        return (bTrump - aTrump) || (b.card.rank - a.card.rank);
+      });
+
+    let swaps = 0;
+    for (const lowCard of lowestCards) {
+      const lowIndex = room.hands[player.seat].findIndex(card => card.code === lowCard.code);
+      if (lowIndex < 0) continue;
+      const high = candidates.find(item =>
+        item.card.rank > lowCard.rank &&
+        room.hands[item.seat].some(card => card.code === item.card.code)
+      );
+      if (!high) continue;
+      const highIndex = room.hands[high.seat].findIndex(card => card.code === high.card.code);
+      if (highIndex < 0) continue;
+      const temp = room.hands[player.seat][lowIndex];
+      room.hands[player.seat][lowIndex] = room.hands[high.seat][highIndex];
+      room.hands[high.seat][highIndex] = temp;
+      swaps += 1;
+    }
+
+    room.hands = room.hands.map(hand => sorted(hand, room.bid?.suit || null));
+    broadcastState(room);
+    socket.emit('notice', swaps
+      ? 'تم تعزيز يدك في وضع فحص التطوير (' + swaps + ' تبديلات)'
+      : 'لم تتوفر أوراق أعلى مناسبة للتبديل');
+  });
   socket.on('submit_bid', payload => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
     const player = room && playerFor(room, socket);
     if (room && player) applyBid(room, player.seat, payload || {});
+  });
+  socket.on('select_trump', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    const suit = String(payload?.suit || '');
+    if (!room || !player) return;
+    if (!selectTrump(room, player.seat, suit)) {
+      socket.emit('notice', 'اختيار الحكم متاح فقط لصاحب أعلى طلب');
+    }
   });
   socket.on('play_card', payload => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
@@ -437,8 +707,9 @@ io.on('connection', socket => {
     if (!room || room.status !== 'finished' || !player) return;
     room.rematchVotes.add(player.seat);
     io.to(room.code).emit('rematch_votes', [...room.rematchVotes]);
-    if (room.rematchVotes.size === 4) {
+    if (room.aiPractice || room.rematchVotes.size === 4) {
       room.rematchVotes.clear();
+      io.to(room.code).emit('rematch_votes', []);
       room.scores = [0, 0];
       room.dealerSeat = seatToRight(room.dealerSeat);
       room.roundNumber = 1;

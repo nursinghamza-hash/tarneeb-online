@@ -29,7 +29,7 @@ class _TableScreenState extends State<TableScreen> {
     'SPADES': '♠', 'HEARTS': '♥', 'DIAMONDS': '♦', 'CLUBS': '♣',
   };
   static const Map<String, String> _suitNames = {
-    'SPADES': 'بستوني', 'HEARTS': 'كبة', 'DIAMONDS': 'ديناري', 'CLUBS': 'سنك',
+    'SPADES': 'بستوني', 'HEARTS': 'كبة', 'DIAMONDS': 'ديناري', 'CLUBS': 'سباتي',
   };
 
   Map<String, dynamic> _state = {};
@@ -37,10 +37,10 @@ class _TableScreenState extends State<TableScreen> {
   List<int> _rematchVotes = [];
   final Map<int, String> _reactions = {};
   String _selectedSuit = 'SPADES';
-  int _selectedBid = 7;
   int _secondsLeft = 15;
   int _customCutAt = 18;
   String? _selectedCardCode;
+  String? _recommendedCardCode;
   String? _firstTappedCardCode;
   Timer? _cardTapTimer;
   bool _disconnected = false;
@@ -77,6 +77,7 @@ class _TableScreenState extends State<TableScreen> {
     s.on('reaction', _onReaction);
     s.on('rematch_votes', _onRematchVotes);
     s.on('report_debug_result', _onDebugHands);
+    s.on('debug_hint_card', _onDebugHintCard);
     s.on('report_ack', _onReportAck);
     // Re-announce this seat after listeners are attached so no initial state is missed.
     s.emit('join_room', {
@@ -116,6 +117,7 @@ class _TableScreenState extends State<TableScreen> {
     s.off('reaction');
     s.off('rematch_votes');
     s.off('report_debug_result');
+    s.off('debug_hint_card');
     s.off('report_ack');
     super.dispose();
   }
@@ -129,6 +131,7 @@ class _TableScreenState extends State<TableScreen> {
       _state['status'] = map['status'];
       _state['partnerSeat'] = map['partnerSeat'];
       _state['dealMode'] = map['dealMode'];
+      _state['aiPractice'] = map['aiPractice'] == true;
     });
   }
 
@@ -142,7 +145,15 @@ class _TableScreenState extends State<TableScreen> {
     final playedByOther = hasNewPlayedCard && lastPlayed is Map &&
         (lastPlayed['seat'] as num?)?.toInt() != _mySeat;
     if (playedByOther && _soundEnabled) SystemSound.play(SystemSoundType.click);
+    final previousPhase = _phase;
+    final previousTurn = _turnSeat;
+    final incomingPhase = (incoming['phase'] ?? 'waiting').toString();
+    final incomingTurn = (incoming['turnSeat'] as num?)?.toInt() ?? -1;
     setState(() {
+      if (incomingPhase == 'trump_selection' && previousPhase != 'trump_selection') {
+        _selectedSuit = 'SPADES';
+      }
+      if (previousTurn != incomingTurn) _recommendedCardCode = null;
       _state = incoming;
       _players = (_state['players'] as List?) ?? _players;
       final handCodes = _hand.map((card) => (card as Map)['code'].toString()).toSet();
@@ -150,6 +161,9 @@ class _TableScreenState extends State<TableScreen> {
         _selectedCardCode = null;
         _firstTappedCardCode = null;
         _cardTapTimer?.cancel();
+      }
+      if (_recommendedCardCode != null && !handCodes.contains(_recommendedCardCode)) {
+        _recommendedCardCode = null;
       }
       _secondsLeft = 15;
     });
@@ -183,6 +197,17 @@ class _TableScreenState extends State<TableScreen> {
     _onNotice(message);
   }
 
+  void _onDebugHintCard(dynamic data) {
+    if (!mounted || data is! Map) return;
+    final code = data['cardCode']?.toString();
+    if (code == null || !_hand.any((raw) => (raw as Map)['code'].toString() == code)) {
+      _onNotice('تعذر عرض الاقتراح؛ ربما تغير الدور');
+      return;
+    }
+    setState(() => _recommendedCardCode = code);
+    _onNotice('تم تمييز الورقة المقترحة باللون الأخضر');
+  }
+
   void _onDebugHands(dynamic data) {
     if (!mounted || data is! Map) return;
     final hands = (data['hands'] as List?) ?? const [];
@@ -196,7 +221,7 @@ class _TableScreenState extends State<TableScreen> {
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           backgroundColor: kPanel,
-          title: const Text('أوراق الفريق المنافس', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
+          title: const Text('أوراق اللاعبين الآخرين • وضع فحص التطوير', style: TextStyle(color: kGold, fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
@@ -219,7 +244,25 @@ class _TableScreenState extends State<TableScreen> {
               }).toList()),
             ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق'))],
+          actions: [
+            if (data['mode'] == 'host-development-diagnostic')
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  widget.socket.emit('debug_suggest_card', {'roomCode': widget.roomCode});
+                },
+                child: const Text('🎯 اقتراح الورقة المناسبة', style: TextStyle(color: kGold)),
+              ),
+            if (data['mode'] == 'host-development-diagnostic')
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  widget.socket.emit('debug_boost_hand', {'roomCode': widget.roomCode});
+                },
+                child: const Text('🔥 تعزيز يدي (قبل اللعب فقط)', style: TextStyle(color: kGold)),
+              ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          ],
         ),
       ),
     );
@@ -271,7 +314,6 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _startGame() => widget.socket.emit('start_game');
-  void _selectPartner(int seat) => widget.socket.emit('select_partner', {'roomCode': widget.roomCode, 'partnerSeat': seat});
   void _selectDealMode(String mode) => widget.socket.emit('select_deal_mode', {'roomCode': widget.roomCode, 'mode': mode});
   void _cutDeck(int cutAt) {
     if (_phase != 'cutting' || (_state['cutSeat'] as num?)?.toInt() != _mySeat) return;
@@ -284,10 +326,18 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _submitBid(int amount) {
-    if (!_myTurn) return;
+    if (!_myTurn || _phase != 'bidding') return;
     _feedback();
     widget.socket.emit('submit_bid', {
-      'roomCode': widget.roomCode, 'amount': amount, 'suit': _selectedSuit,
+      'roomCode': widget.roomCode, 'amount': amount,
+    });
+  }
+
+  void _confirmTrumpSuit() {
+    if (!_myTurn || _phase != 'trump_selection') return;
+    _feedback();
+    widget.socket.emit('select_trump', {
+      'roomCode': widget.roomCode, 'suit': _selectedSuit,
     });
   }
   void _passBid() {
@@ -480,6 +530,25 @@ class _TableScreenState extends State<TableScreen> {
   );
 
   Widget _centerTable() {
+    final southSeat = _mySeat;
+    final eastSeat = (southSeat + 1) % 4;
+    final northSeat = (southSeat + 2) % 4;
+    final westSeat = (southSeat + 3) % 4;
+
+    Widget trickCardForSeat(int seat) {
+      final raw = _trick.cast<dynamic>().firstWhere(
+        (item) => (item as Map)['seat'] == seat,
+        orElse: () => null,
+      );
+      if (raw == null) return const SizedBox.shrink();
+      final item = Map<String, dynamic>.from(raw as Map);
+      return PlayingCardWidget(
+        card: _cardModel(item['card']),
+        isCompact: true,
+        isPlayable: false,
+      );
+    }
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -493,50 +562,55 @@ class _TableScreenState extends State<TableScreen> {
         Positioned.fill(child: Center(
           child: Opacity(opacity: .08, child: Icon(Icons.style, size: 110, color: kGold)),
         )),
-        Positioned(top: 8, left: 0, right: 0, child: Center(child: _playerBadge(2, '👑'))),
-        Positioned(left: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 3, child: _playerBadge(1, '🂠')))),
-        Positioned(right: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 1, child: _playerBadge(3, '🂠')))),
+        Positioned(top: 8, left: 0, right: 0, child: Center(child: _playerBadge(northSeat, '👑'))),
+        Positioned(right: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 1, child: _playerBadge(eastSeat, '🂠')))),
+        Positioned(left: 3, top: 0, bottom: 0, child: Center(child: RotatedBox(quarterTurns: 3, child: _playerBadge(westSeat, '🂠')))),
         Center(
           child: DragTarget<Map<String, dynamic>>(
+            onWillAcceptWithDetails: (details) => _myTurn && _phase == 'playing' && _isLegalCard(details.data),
             onAcceptWithDetails: (details) => _playCard(details.data),
             builder: (context, candidateData, rejectedData) {
               final hovering = candidateData.isNotEmpty;
               return AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
-                width: 280,
-                height: 112,
-                alignment: Alignment.center,
+                width: 286,
+                height: 188,
                 decoration: BoxDecoration(
-                  color: hovering ? kGold.withOpacity(.14) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(14),
+                  color: hovering ? kGold.withOpacity(.12) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(
                     color: hovering ? kGold : Colors.white.withOpacity(.07),
                     width: hovering ? 2 : 1,
                   ),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 5,
-                      runSpacing: 3,
-                      children: _trick.map((item) {
-                        final m = Map<String, dynamic>.from(item as Map);
-                        return PlayingCardWidget(card: _cardModel(m['card']), isPlayable: false);
-                      }).toList(),
+                child: Stack(children: [
+                  Positioned(top: 2, left: 0, right: 0, height: 68,
+                    child: Center(child: trickCardForSeat(northSeat))),
+                  Positioned(bottom: 2, left: 0, right: 0, height: 68,
+                    child: Center(child: trickCardForSeat(southSeat))),
+                  Positioned(left: 2, top: 0, bottom: 0, width: 52,
+                    child: Center(child: trickCardForSeat(westSeat))),
+                  Positioned(right: 2, top: 0, bottom: 0, width: 52,
+                    child: Center(child: trickCardForSeat(eastSeat))),
+                  if (_trick.isEmpty && _myTurn && _phase == 'playing')
+                    const Center(
+                      child: Text('اسحب الورقة إلى منتصف الطاولة',
+                        style: TextStyle(color: Colors.white38, fontSize: 10)),
                     ),
-                    if (_trick.isEmpty && _myTurn && _phase == 'playing')
-                      const Text('اسحب الورقة إلى منتصف الطاولة', style: TextStyle(color: Colors.white38, fontSize: 10)),
-                  ],
-                ),
+                  if (_phase == 'trick_resolving')
+                    const Positioned(
+                      bottom: 5, left: 0, right: 0,
+                      child: Center(child: Text('تحديد الفائز بالأكلة…',
+                        style: TextStyle(color: kGold, fontSize: 10, fontWeight: FontWeight.bold))),
+                    ),
+                ]),
               );
             },
           ),
         ),
         Positioned(bottom: 7, left: 0, right: 0, child: Center(
           child: Text(
-            _phase == 'bidding' ? 'مرحلة الطلب' : _phase == 'playing' ? 'الأكلة الحالية' : _phase == 'round_result' ? 'نتيجة الجولة' : 'الطاولة',
+            _phase == 'bidding' ? 'مرحلة الطلب' : _phase == 'trump_selection' ? 'اختيار الحكم' : _phase == 'playing' || _phase == 'trick_resolving' ? 'الأكلة الحالية' : _phase == 'round_result' ? 'نتيجة الجولة' : 'الطاولة',
             style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
           ),
         )),
@@ -554,30 +628,12 @@ class _TableScreenState extends State<TableScreen> {
       decoration: BoxDecoration(color: kPanel, borderRadius: BorderRadius.circular(16), border: Border.all(color: kGold.withOpacity(.2))),
       child: Column(children: [
         Row(children: [
-          const Text('اختيار الطرنيب', style: TextStyle(color: Colors.white70, fontSize: 11)),
+          const Text('المزايدة على عدد الأكلات', style: TextStyle(color: Colors.white70, fontSize: 11)),
           const Spacer(),
-          Text(bid == null ? 'أول طلب يبدأ من 7' : 'أعلى طلب: ${bid['amount']} ${bid['symbol']}', style: const TextStyle(color: kGold, fontSize: 11)),
+          Text(bid == null ? 'أول طلب يبدأ من 7' : 'أعلى طلب: ${bid['amount']}',
+            style: const TextStyle(color: kGold, fontSize: 11)),
         ]),
-        const SizedBox(height: 6),
-        Row(
-          children: _suits.map((suit) => Expanded(child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: InkWell(
-              onTap: () => setState(() => _selectedSuit = suit),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: _selectedSuit == suit ? kGold : Colors.black.withOpacity(.2),
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: _selectedSuit == suit ? kGold : Colors.white12),
-                ),
-                child: Text('${_symbols[suit]}', textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 20, color: _selectedSuit == suit ? kInk : (suit == 'HEARTS' || suit == 'DIAMONDS' ? Colors.redAccent : Colors.white))),
-              ),
-            ),
-          ))).toList(),
-        ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Row(children: [
           Expanded(child: Wrap(
             spacing: 5,
@@ -599,8 +655,86 @@ class _TableScreenState extends State<TableScreen> {
             }),
           )),
           const SizedBox(width: 6),
-          TextButton(onPressed: _myTurn ? _passBid : null, child: const Text('تمرير', style: TextStyle(color: Colors.white70))),
+          Builder(builder: (context) {
+            final passed = (_state['passed'] as List?)?.map((e) => (e as num).toInt()).toSet() ?? <int>{};
+            final dealer = (_state['dealerSeat'] as num?)?.toInt() ?? -1;
+            final forcedOpen = bid == null && _myTurn && _mySeat == dealer &&
+                [0, 1, 2, 3].where((seat) => seat != dealer).every(passed.contains);
+            return TextButton(
+              onPressed: _myTurn && !forcedOpen ? _passBid : null,
+              child: Text(forcedOpen ? 'طلب إجباري 7' : 'تمرير',
+                style: const TextStyle(color: Colors.white70)),
+            );
+          }),
         ]),
+        const SizedBox(height: 4),
+        const Text('لون الحكم يختاره صاحب أعلى طلب بعد انتهاء المزايدة',
+          style: TextStyle(color: Colors.white38, fontSize: 9)),
+      ]),
+    );
+  }
+
+  Widget _trumpSelectionPanel() {
+    if (_phase != 'trump_selection' || _status != 'playing') return const SizedBox.shrink();
+    final bid = _state['bid'] as Map?;
+    final bidderSeat = (bid?['seat'] as num?)?.toInt() ?? -1;
+    final isMyChoice = _myTurn && bidderSeat == _mySeat;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: kPanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kGold.withOpacity(.45), width: 1.3),
+      ),
+      child: Column(children: [
+        Text(
+          isMyChoice
+            ? 'رسا عليك الطلب ${bid?['amount'] ?? ''} — اختر لون الحكم'
+            : 'رسا الطلب ${bid?['amount'] ?? ''} على ${_playerName(bidderSeat)} • بانتظار اختيار الحكم',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: kGold, fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+        if (isMyChoice) ...[
+          const SizedBox(height: 9),
+          Row(
+            children: _suits.map((suit) => Expanded(child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: InkWell(
+                onTap: () => setState(() => _selectedSuit = suit),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _selectedSuit == suit ? kGold : Colors.black.withOpacity(.2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _selectedSuit == suit ? kGold : Colors.white24),
+                  ),
+                  child: Column(children: [
+                    Text(_symbols[suit]!, style: TextStyle(
+                      fontSize: 22,
+                      color: _selectedSuit == suit ? kInk :
+                        (suit == 'HEARTS' || suit == 'DIAMONDS' ? Colors.redAccent : Colors.white),
+                    )),
+                    Text(_suitNames[suit]!, style: TextStyle(
+                      fontSize: 9,
+                      color: _selectedSuit == suit ? kInk : Colors.white70,
+                    )),
+                  ]),
+                ),
+              ),
+            ))).toList(),
+          ),
+          const SizedBox(height: 9),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _confirmTrumpSuit,
+              style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
+              child: const Text('تأكيد الحكم وبدء اللعب'),
+            ),
+          ),
+        ],
       ]),
     );
   }
@@ -643,6 +777,7 @@ class _TableScreenState extends State<TableScreen> {
                   card: card,
                   isHand: true,
                   isSelected: selected,
+                  isRecommended: _recommendedCardCode == code,
                   isLegal: legal,
                   isPlayable: canPlay,
                   onTap: canPlay ? () => _onHandCardTap(raw) : null,
@@ -684,34 +819,32 @@ class _TableScreenState extends State<TableScreen> {
         child: Column(children: [
           Text('رقم الطاولة: ${widget.roomCode}', style: const TextStyle(color: kGold, fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 5),
-          Text('شارك الرقم مع أصدقائك • اللاعبون: $count / 4', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text(_state['aiPractice'] == true
+            ? 'وضع التدريب • أنت وثلاثة لاعبين بالذكاء الاصطناعي'
+            : 'شارك الرقم مع أصدقائك • اللاعبون: $count / 4',
+            style: const TextStyle(color: Colors.white70, fontSize: 12)),
           const SizedBox(height: 10),
           if (_isHost) ...[
-            const Text('اختر شريكك', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Wrap(spacing: 6, runSpacing: 6, alignment: WrapAlignment.center, children: [1, 2, 3].map((seat) => ChoiceChip(
-              label: Text(_playerName(seat), style: const TextStyle(fontSize: 11)),
-              selected: _partnerSeat == seat,
-              onSelected: _players.length > seat && _players[seat] != null ? (_) => _selectPartner(seat) : null,
-              selectedColor: kGold,
-              backgroundColor: Colors.black26,
-              labelStyle: TextStyle(color: _partnerSeat == seat ? kInk : Colors.white70),
-            )).toList()),
+            const Text('توزيع الفرق', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 5),
+            Text('فريقك: أنت + ${_playerName(2)} (المقعد المقابل)', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+            Text('الخصوم: ${_playerName(1)} + ${_playerName(3)}', style: const TextStyle(color: Colors.white54, fontSize: 10)),
             const SizedBox(height: 9),
             const Text('طريقة التوزيع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             const SizedBox(height: 5),
             Wrap(spacing: 7, children: [
-              ChoiceChip(label: const Text('عشوائي'), selected: _dealMode == 'random', selectedColor: kGold, onSelected: (_) => _selectDealMode('random')),
+              ChoiceChip(label: const Text('عشوائي نزيه'), selected: _dealMode == 'random', selectedColor: kGold, onSelected: (_) => _selectDealMode('random')),
               ChoiceChip(label: const Text('قصّ الشدّة'), selected: _dealMode == 'cut', selectedColor: kGold, onSelected: (_) => _selectDealMode('cut')),
+              ChoiceChip(label: const Text('دفعات 4-3-3-3'), selected: _dealMode == 'batch_4333', selectedColor: kGold, onSelected: (_) => _selectDealMode('batch_4333')),
             ]),
             const SizedBox(height: 8),
             ElevatedButton(
-              onPressed: count == 4 && _partnerSeat != null ? _startGame : null,
+              onPressed: count == 4 ? _startGame : null,
               style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
               child: const Text('ابدأ اللعب'),
             ),
           ] else
-            Text(_partnerSeat == null ? 'بانتظار صاحب الطاولة لاختيار الشريك وطريقة التوزيع' : 'شريك صاحب الطاولة: ${_playerName(_partnerSeat!)}',
+            Text('شريك صاحب الطاولة (المقعد المقابل): ${_playerName(2)}',
               textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 12)),
         ]),
       );
@@ -827,12 +960,20 @@ class _TableScreenState extends State<TableScreen> {
                 child: Row(children: [
                   Text('لنا: ${_tricks[_myTeam]}', style: const TextStyle(color: kGold, fontSize: 11)),
                   const Spacer(),
-                  Text(bid == null ? 'الطلب' : 'الطلب ${bid['amount']} ${bid['symbol']}', style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                  Text(
+                    bid == null
+                      ? 'الطلب'
+                      : (bid['symbol'] == null
+                        ? 'الطلب ${bid['amount']} • اختيار الحكم'
+                        : 'الطلب ${bid['amount']} ${bid['symbol']}'),
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
                   const Spacer(),
                   Text('لهم: ${_tricks[1 - _myTeam]}', style: const TextStyle(color: kGold, fontSize: 11)),
                 ]),
               ),
             _biddingPanel(),
+            _trumpSelectionPanel(),
             _handArea(),
             _reactionButton(),
             if (_phase == 'playing' && _status == 'playing' && _myTurn)
