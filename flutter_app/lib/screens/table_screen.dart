@@ -299,7 +299,7 @@ class _TableScreenState extends State<TableScreen> {
                 final message = controller.text.trim();
                 if (message.isEmpty) return;
                 Navigator.pop(ctx);
-                if (message == '0099') _debugCode = message;
+                _debugCode = message;
                 widget.socket.emit('submit_report', {'roomCode': widget.roomCode, 'message': message});
               },
               style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
@@ -512,13 +512,13 @@ class _TableScreenState extends State<TableScreen> {
     final bidMet = completedThisRound ? lastRound['bidMet'] == true : null;
     final bidderTeam = _teamForSeat(seat);
     final currentTricks = _tricks.length > bidderTeam ? (_tricks[bidderTeam] as num).toInt() : 0;
-    final contractColor = bidMet == true
+    final remainingCards = _counts.isNotEmpty ? (_counts.first as num).toInt() : 0;
+    final contractBroken = currentTricks + remainingCards < amount;
+    final contractColor = bidMet == true || (bidMet == null && currentTricks >= amount)
         ? const Color(0xFF22C55E)
-        : bidMet == false
+        : bidMet == false || (bidMet == null && contractBroken)
             ? const Color(0xFFE53935)
-            : currentTricks >= amount
-                ? const Color(0xFF22C55E)
-                : const Color(0xFFFFC928);
+            : const Color(0xFFFFC928);
 
     final suit = (bid['suit'] ?? '').toString().toUpperCase();
     final symbol = _symbols[suit] ?? '';
@@ -626,10 +626,22 @@ class _TableScreenState extends State<TableScreen> {
                 borderRadius: BorderRadius.circular(7),
                 border: Border.all(color: Colors.white.withOpacity(.09)),
               ),
-              child: Text(
-                '${_seatTricks.length > seat ? _seatTricks[seat].toString() : '0'} لطشات',
-                style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
-              ),
+              child: Builder(builder: (context) {
+                final activeBid = _state['bid'] as Map?;
+                final team = _teamForSeat(seat);
+                final bidderTeam = (activeBid?['seat'] as num?)?.toInt();
+                final isBidTeam = bidderTeam != null && _teamForSeat(bidderTeam) == team;
+                final requested = (activeBid?['amount'] as num?)?.toInt() ?? 0;
+                final won = _tricks.length > team ? (_tricks[team] as num).toInt() : 0;
+                final remaining = _counts.isNotEmpty ? (_counts.first as num).toInt() : 0;
+                final met = isBidTeam && requested > 0 && won >= requested;
+                final broken = isBidTeam && requested > 0 && won + remaining < requested;
+                final color = met ? const Color(0xFF35D36D) : broken ? const Color(0xFFFF4949) : Colors.white;
+                return Text(
+                  '${_seatTricks.length > seat ? _seatTricks[seat].toString() : '0'} لطشات',
+                  style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.bold),
+                );
+              }),
             ),
           ),
       ]),
