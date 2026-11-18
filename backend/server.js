@@ -101,6 +101,49 @@ function clearTurnTimer(room) {
 function clearTrickTimer(room) {
   if (room.trickTimer) clearTimeout(room.trickTimer);
   room.trickTimer = null;
+  room.trickDeadline = null;
+}
+function scheduleTrickResolution(room, delayMs = 900) {
+  clearTrickTimer(room);
+  room.trickDeadline = Date.now() + Math.max(0, delayMs);
+  room.trickTimer = setTimeout(() => {
+    if (!rooms.has(room.code) || room.paused || room.phase !== 'trick_resolving') return;
+    room.trickTimer = null;
+    room.trickDeadline = null;
+    completeTrick(room);
+    if (room.phase === 'playing' && room.status === 'playing') startTurnTimer(room);
+    broadcastState(room);
+    sendRoom(room);
+  }, Math.max(0, delayMs));
+}
+function toggleRoomPause(room, paused, seat) {
+  if (!room || room.status !== 'playing') return false;
+  if (paused === room.paused) return true;
+  if (paused) {
+    room.pausedTurnRemainingMs = room.deadline == null ? null : Math.max(0, room.deadline - Date.now());
+    room.pausedTrickRemainingMs = room.trickDeadline == null ? null : Math.max(0, room.trickDeadline - Date.now());
+    clearTurnTimer(room);
+    clearTrickTimer(room);
+    room.paused = true;
+    room.pausedBy = seat;
+    room.deadline = null;
+  } else {
+    room.paused = false;
+    room.pausedBy = null;
+    if (room.phase === 'trick_resolving') {
+      const remaining = room.pausedTrickRemainingMs ?? 900;
+      scheduleTrickResolution(room, remaining);
+    } else if (['playing', 'bidding'].includes(room.phase)) {
+      const remaining = room.pausedTurnRemainingMs;
+      startTurnTimer(room, remaining == null ? null : remaining);
+    }
+    room.pausedTurnRemainingMs = null;
+    room.pausedTrickRemainingMs = null;
+  }
+  broadcastState(room);
+  sendRoom(room);
+  io.to(room.code).emit('notice', paused ? 'تم إيقاف اللعب مؤقتاً بواسطة صاحب الطاولة' : 'استؤنفت اللعبة — عاد الوقت المتبقي');
+  return true;
 }
 function publicPlayers(room) {
   return room.players.map((p, seat) => p ? ({
@@ -115,6 +158,7 @@ function sendRoom(room) {
     aiPractice: room.aiPractice === true,
     status: room.status, players: publicPlayers(room),
     partnerSeat: room.partnerSeat, dealMode: room.dealMode,
+    paused: room.paused === true, pausedBy: room.pausedBy ?? null,
   });
 }
 function stateFor(room, seat) {
@@ -139,6 +183,8 @@ function stateFor(room, seat) {
     currentTrick: room.currentTrick,
     turnSeat: room.turnSeat,
     deadline: room.deadline,
+    paused: room.paused === true,
+    pausedBy: room.pausedBy ?? null,
     bid: room.bid,
     bidTurn: room.bidTurn,
     passed: room.passed,
@@ -159,14 +205,15 @@ function broadcastState(room) {
     if (p && p.id) io.to(p.id).emit('game_state', stateFor(room, seat));
   });
 }
-function startTurnTimer(room) {
+function startTurnTimer(room, overrideDelayMs = null) {
   clearTurnTimer(room);
+  if (room.paused) { room.deadline = null; return; }
   const seat = room.turnSeat;
   const isBotTurn = room.players[seat]?.isBot === true;
-  const delayMs = isBotTurn ? 650 : TURN_SECONDS * 1000;
+  const delayMs = overrideDelayMs == null ? (isBotTurn ? 650 : TURN_SECONDS * 1000) : Math.max(0, overrideDelayMs);
   room.deadline = Date.now() + delayMs;
   room.turnTimer = setTimeout(() => {
-    if (!rooms.has(room.code) || room.status !== 'playing' || room.turnSeat !== seat) return;
+    if (!rooms.has(room.code) || room.status !== 'playing' || room.paused || room.turnSeat !== seat) return;
     if (isBotTurn) {
       if (room.phase === 'bidding') {
         const decision = chooseBid({
@@ -260,6 +307,7 @@ function startTrumpSelection(room) {
 }
 
 function selectTrump(room, seat, suit) {
+  if (room.paused) return false;
   const selection = chooseTrump({ phase: room.phase, bid: room.bid, seat, suit });
   if (!selection) return false;
   room.phase = selection.phase;
@@ -274,7 +322,7 @@ function selectTrump(room, seat, suit) {
 }
 
 function applyBid(room, seat, action) {
-  if (room.phase !== 'bidding' || room.turnSeat !== seat) return;
+  if (room.paused || room.phase !== 'bidding' || room.turnSeat !== seat) return;
   if (!canBid(seat, room.passed)) {
     const player = room.players[seat];
     if (player && player.id) io.to(player.id).emit('notice', 'لقد مررت في هذه الجولة ولا يمكنك المزايدة مجدداً');
@@ -392,7 +440,7 @@ function finishRound(room) {
   sendRoom(room);
 }
 function playCard(room, seat, cardCode, automatic = false) {
-  if (room.phase !== 'playing' || room.turnSeat !== seat) return;
+  if (room.paused || room.phase !== 'playing' || room.turnSeat !== seat) return;
   const hand = room.hands[seat];
   const card = hand.find(c => c.code === cardCode);
   if (!card) return;
@@ -413,14 +461,7 @@ function playCard(room, seat, cardCode, automatic = false) {
     room.phase = 'trick_resolving';
     room.deadline = Date.now() + 900;
     broadcastState(room);
-    room.trickTimer = setTimeout(() => {
-      if (!rooms.has(room.code) || room.phase !== 'trick_resolving') return;
-      room.trickTimer = null;
-      completeTrick(room);
-      if (room.phase === 'playing' && room.status === 'playing') startTurnTimer(room);
-      broadcastState(room);
-      sendRoom(room);
-    }, 900);
+    scheduleTrickResolution(room, 900);
   } else {
     room.turnSeat = seatToRight(seat);
     startTurnTimer(room);
@@ -443,6 +484,7 @@ function createRoom(socket, payload) {
     tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
     dealPattern: 'one', lastTrick: [], trickTimer: null, debugEnabledSeats: new Set(),
     status: 'waiting', turnSeat: 0, bidTurn: null, bid: null, passed: [],
+    paused: false, pausedBy: null, pausedTurnRemainingMs: null, pausedTrickRemainingMs: null, trickDeadline: null,
     dealerSeat: crypto.randomInt(4), roundNumber: 0, winnerTeam: null,
     lastRound: null, rematchVotes: new Set(), turnTimer: null,
   };
@@ -536,6 +578,19 @@ io.on('connection', socket => {
   socket.on('create_room', payload => createRoom(socket, payload || {}));
   socket.on('join_room', payload => joinRoom(socket, payload || {}));
 
+  socket.on('toggle_pause', payload => {
+    const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
+    const player = room && playerFor(room, socket);
+    if (!room || !player || player.token !== room.hostToken) {
+      if (player) socket.emit('notice', 'إيقاف اللعبة متاح لصاحب الطاولة فقط');
+      return;
+    }
+    if (room.status !== 'playing') {
+      socket.emit('notice', 'يمكن إيقاف اللعب أثناء الجولة فقط');
+      return;
+    }
+    toggleRoomPause(room, !room.paused, player.seat);
+  });
   socket.on('select_partner', payload => {
     const room = rooms.get(String(payload?.roomCode || '').toUpperCase());
     const player = room && playerFor(room, socket);
