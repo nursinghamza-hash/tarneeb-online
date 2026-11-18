@@ -821,8 +821,8 @@ class _TableScreenState extends State<TableScreen> {
           ),
         ),
         child: Stack(clipBehavior: Clip.none, children: [
-          Positioned(left: 9, top: 4, child: _scoreboard()),
-          Positioned(right: 9, top: 4, child: _lastTrickPreview()),
+          Positioned(left: 9, top: 12, child: _scoreboard()),
+          Positioned(right: 9, top: 12, child: _lastTrickPreview()),
           Positioned(
             left: boardLeft, top: boardTop, width: boardWidth, height: boardHeight,
             child: Container(
