@@ -36,6 +36,14 @@ class _TableScreenState extends State<TableScreen> {
   List<dynamic> _players = [];
   List<int> _rematchVotes = [];
   final Map<int, String> _reactions = {};
+  final Map<int, String> _quickChats = {};
+  final Map<int, Timer> _quickChatTimers = {};
+  static const List<String> _quickChatOptions = [
+    'العب طرنيب يا شريك! 🔥',
+    'إلي الأكلة لا تعلي ✋',
+    'كفو والله يا بطل 👑',
+    'كبوت بعون الله 🚀',
+  ];
   String _selectedSuit = 'SPADES';
   int _secondsLeft = 15;
   int _customCutAt = 18;
@@ -75,6 +83,7 @@ class _TableScreenState extends State<TableScreen> {
     s.on('notice', _onNotice);
     s.on('room_error', _onNotice);
     s.on('reaction', _onReaction);
+    s.on('quick_chat_message', _onQuickChatMessage);
     s.on('rematch_votes', _onRematchVotes);
     s.on('report_debug_result', _onDebugHands);
     s.on('debug_hint_card', _onDebugHintCard);
@@ -109,12 +118,17 @@ class _TableScreenState extends State<TableScreen> {
   void dispose() {
     _clock?.cancel();
     _cardTapTimer?.cancel();
+    for (final timer in _quickChatTimers.values) {
+      timer.cancel();
+    }
+    _quickChatTimers.clear();
     final s = widget.socket;
     s.off('room_update');
     s.off('game_state');
     s.off('notice');
     s.off('room_error');
     s.off('reaction');
+    s.off('quick_chat_message');
     s.off('rematch_votes');
     s.off('report_debug_result');
     s.off('debug_hint_card');
@@ -184,6 +198,71 @@ class _TableScreenState extends State<TableScreen> {
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted && _reactions[seat] == map['emoji']) setState(() => _reactions.remove(seat));
     });
+  }
+
+  void _onQuickChatMessage(dynamic data) {
+    if (!mounted || data is! Map) return;
+    final seat = (data['seat'] as num?)?.toInt();
+    final message = data['message']?.toString();
+    if (seat == null || seat < 0 || seat > 3 || message == null || message.isEmpty) return;
+
+    _quickChatTimers[seat]?.cancel();
+    setState(() => _quickChats[seat] = message);
+    _quickChatTimers[seat] = Timer(const Duration(milliseconds: 2800), () {
+      if (!mounted || _quickChats[seat] != message) return;
+      setState(() => _quickChats.remove(seat));
+      _quickChatTimers.remove(seat);
+    });
+  }
+
+  void _sendQuickChat(String message) {
+    if (!_quickChatOptions.contains(message)) return;
+    _feedback();
+    widget.socket.emit('quick_chat', {
+      'roomCode': widget.roomCode,
+      'message': message,
+    });
+  }
+
+  void _openQuickChat() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kPanel,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('رسائل سريعة للطاولة',
+                  style: TextStyle(color: kGold, fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 10),
+                ..._quickChatOptions.map((message) => Padding(
+                  padding: const EdgeInsets.only(bottom: 7),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _sendQuickChat(message);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white24),
+                        padding: const EdgeInsets.symmetric(vertical: 11),
+                      ),
+                      child: Text(message, textAlign: TextAlign.center),
+                    ),
+                  ),
+                )),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _onRematchVotes(dynamic data) {
@@ -658,6 +737,12 @@ class _TableScreenState extends State<TableScreen> {
           const Positioned(right: -3, top: -4, child: Icon(Icons.wifi_off, color: Colors.orangeAccent, size: 13)),
         if (_reactions.containsKey(seat))
           Positioned(top: -38, left: 8, child: _ReactionBubble(emoji: _reactions[seat]!)),
+        if (_quickChats.containsKey(seat))
+          Positioned(
+            top: -70,
+            left: 4,
+            child: _QuickChatBubble(message: _quickChats[seat]!),
+          ),
       ]),
     ]);
   }
@@ -682,15 +767,27 @@ class _TableScreenState extends State<TableScreen> {
     alignment: Alignment.centerRight,
     child: Padding(
       padding: const EdgeInsets.fromLTRB(10, 0, 12, 5),
-      child: InkWell(
-        onTap: _openReactions,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 38, height: 34,
-          decoration: BoxDecoration(color: Colors.black.withOpacity(.28), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white12)),
-          child: const Icon(Icons.emoji_emotions_outlined, color: kGold, size: 19),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        InkWell(
+          onTap: _openQuickChat,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: 38, height: 34,
+            margin: const EdgeInsetsDirectional.only(end: 6),
+            decoration: BoxDecoration(color: Colors.black.withOpacity(.28), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white12)),
+            child: const Icon(Icons.chat_bubble_outline, color: kGold, size: 18),
+          ),
         ),
-      ),
+        InkWell(
+          onTap: _openReactions,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            width: 38, height: 34,
+            decoration: BoxDecoration(color: Colors.black.withOpacity(.28), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.white12)),
+            child: const Icon(Icons.emoji_emotions_outlined, color: kGold, size: 19),
+          ),
+        ),
+      ]),
     ),
   );
 
@@ -1146,6 +1243,33 @@ class _TableScreenState extends State<TableScreen> {
             if (_phase == 'playing' && _status == 'playing' && _myTurn)
               const Padding(padding: EdgeInsets.only(bottom: 3), child: Text('دورك الآن — اضغط مرتين أو اسحب الورقة إلى الوسط', style: TextStyle(color: kGold, fontSize: 10, fontWeight: FontWeight.bold))),
           ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickChatBubble extends StatelessWidget {
+  final String message;
+  const _QuickChatBubble({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 210),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: kGold, width: 1),
+          boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 8, offset: Offset(0, 3))],
+        ),
+        child: Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: kInk, fontSize: 10, fontWeight: FontWeight.bold),
+          softWrap: true,
         ),
       ),
     );
