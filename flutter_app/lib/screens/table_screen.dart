@@ -956,22 +956,36 @@ class _TableScreenState extends State<TableScreen> {
                     isPlayable: canPlay,
                     onTap: canPlay ? () => _onHandCardTap(raw) : null,
                   );
+                  final roundNumber = (_state['roundNumber'] as num?)?.toInt() ?? 0;
                   return Positioned(
+                    key: ValueKey('$roundNumber-${card.code}'),
                     right: index * step,
                     top: selected ? 0 : 3,
-                    child: Draggable<Map<String, dynamic>>(
-                      data: Map<String, dynamic>.from(raw as Map),
-                      maxSimultaneousDrags: canPlay ? 1 : 0,
-                      feedback: Material(
-                        color: Colors.transparent,
-                        child: PlayingCardWidget(
-                          card: card, isHand: true,
-                          cardWidth: cardWidth, cardHeight: cardHeight,
-                          isSelected: true, isPlayable: false,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0, end: 1),
+                      duration: Duration(milliseconds: 260 + layerIndex * 24),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, progress, child) => Opacity(
+                        opacity: progress,
+                        child: Transform.translate(
+                          offset: Offset(0, (1 - progress) * 34),
+                          child: Transform.scale(scale: .9 + .1 * progress, child: child),
                         ),
                       ),
-                      childWhenDragging: Opacity(opacity: .28, child: face),
-                      child: face,
+                      child: Draggable<Map<String, dynamic>>(
+                        data: Map<String, dynamic>.from(raw as Map),
+                        maxSimultaneousDrags: canPlay ? 1 : 0,
+                        feedback: Material(
+                          color: Colors.transparent,
+                          child: PlayingCardWidget(
+                            card: card, isHand: true,
+                            cardWidth: cardWidth, cardHeight: cardHeight,
+                            isSelected: true, isPlayable: false,
+                          ),
+                        ),
+                        childWhenDragging: Opacity(opacity: .28, child: face),
+                        child: face,
+                      ),
                     ),
                   );
                 })),
