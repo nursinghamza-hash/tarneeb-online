@@ -81,6 +81,7 @@ class _TableScreenState extends State<TableScreen> {
   List<dynamic> get _counts => (_state['handCounts'] as List?) ?? [0, 0, 0, 0];
   List<dynamic> get _scores => (_state['scores'] as List?) ?? [0, 0];
   List<dynamic> get _tricks => (_state['tricks'] as List?) ?? [0, 0];
+  List<dynamic> get _seatTricks => (_state['seatTricks'] as List?) ?? [0, 0, 0, 0];
   int get _target => (_state['targetScore'] as num?)?.toInt() ?? 41;
   int get _deadline => (_state['deadline'] as num?)?.toInt() ?? 0;
 
@@ -626,7 +627,7 @@ class _TableScreenState extends State<TableScreen> {
                 border: Border.all(color: Colors.white.withOpacity(.09)),
               ),
               child: Text(
-                '${_tricks.length > _teamForSeat(seat) ? _tricks[_teamForSeat(seat)].toString() : '0'} لطشات',
+                '${_seatTricks.length > seat ? _seatTricks[seat].toString() : '0'} لطشات',
                 style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
               ),
             ),
@@ -794,7 +795,7 @@ class _TableScreenState extends State<TableScreen> {
       final maxWidth = constraints.maxWidth;
       final maxHeight = constraints.maxHeight;
       final boardWidth = math.min(maxWidth * .94, 680.0).clamp(245.0, 680.0).toDouble();
-      final boardTop = 52.0;
+      final boardTop = 84.0;
       final boardHeight = math.min(maxHeight - boardTop - 8, boardWidth * 1.62).clamp(210.0, 900.0).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
       final centerWidth = math.min(boardWidth * .58, 225.0).toDouble();
@@ -1136,13 +1137,12 @@ class _TableScreenState extends State<TableScreen> {
       final rows = _debugHands;
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-        constraints: BoxConstraints(maxWidth: math.min(constraints.maxWidth - 20, 440), maxHeight: constraints.maxHeight - 24),
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
+        constraints: BoxConstraints(maxWidth: constraints.maxWidth - 10, maxHeight: constraints.maxHeight - 10),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
         decoration: BoxDecoration(
-          color: const Color(0xF20A0B0A),
-          borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: const Color(0xFFFFC928), width: 1.4),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.65), blurRadius: 22, offset: const Offset(0, 8))],
+          color: const Color(0xE8090A09),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(.16), width: 1),
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(children: [
@@ -1483,7 +1483,19 @@ class _TableScreenState extends State<TableScreen> {
               child: Stack(children: [
                 Positioned.fill(child: _centerTable()),
                 if (_debugHandsVisible)
-                  Align(alignment: Alignment.center, child: _debugHandsOverlay()),
+                  Positioned.fill(child: _debugHandsOverlay()),
+                if (_state['paused'] == true)
+                  Positioned(top: 5, left: 0, right: 0, child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                      decoration: BoxDecoration(color: const Color(0xE8A66A00), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFFFD34F))),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.pause_circle_filled_rounded, color: Colors.white, size: 16),
+                        SizedBox(width: 6),
+                        Text('اللعبة متوقفة مؤقتاً', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                      ]),
+                    ),
+                  )),
                 if (_status == 'waiting' || _phase == 'cutting' || _phase == 'round_result' || _status == 'finished')
                   Align(
                     alignment: Alignment.center,
