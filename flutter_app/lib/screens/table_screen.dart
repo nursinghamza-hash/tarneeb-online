@@ -807,8 +807,8 @@ class _TableScreenState extends State<TableScreen> {
       final maxWidth = constraints.maxWidth;
       final maxHeight = constraints.maxHeight;
       final boardWidth = math.min(maxWidth * .72, 680.0).clamp(220.0, 680.0).toDouble();
-      final boardTop = 118.0;
-      final boardHeight = math.min(maxHeight - boardTop - 8, boardWidth * 1.36).clamp(210.0, 900.0).toDouble();
+      final boardTop = maxHeight * .25;
+      final boardHeight = (maxHeight * .72).clamp(210.0, 900.0).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
       final centerWidth = math.min(boardWidth * .78, 240.0).toDouble();
       final centerHeight = math.min(boardHeight * .50, 230.0).toDouble();
@@ -1541,7 +1541,7 @@ class _TableScreenState extends State<TableScreen> {
                   )),
                 if (_status == 'waiting' || _phase == 'cutting' || _phase == 'round_result' || _status == 'finished')
                   Align(
-                    alignment: Alignment.center,
+                    alignment: const Alignment(0, .22),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 320),
                       child: _waitingOrResult(),
@@ -1549,7 +1549,7 @@ class _TableScreenState extends State<TableScreen> {
                   )
                 else if (_phase == 'bidding')
                   Align(
-                    alignment: Alignment.center,
+                    alignment: const Alignment(0, .22),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 190),
                       child: _biddingPanel(),
@@ -1557,7 +1557,7 @@ class _TableScreenState extends State<TableScreen> {
                   )
                 else if (_phase == 'trump_selection')
                   Align(
-                    alignment: Alignment.center,
+                    alignment: const Alignment(0, .22),
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 320),
                       child: _trumpSelectionPanel(),
