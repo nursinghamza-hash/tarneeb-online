@@ -458,10 +458,18 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _submitBid(int amount) {
-    if (!_myTurn) return;
+    if (!_myTurn || _phase != 'bidding') return;
     _feedback();
     widget.socket.emit('submit_bid', {
-      'roomCode': widget.roomCode, 'amount': amount, 'suit': _selectedSuit,
+      'roomCode': widget.roomCode, 'amount': amount,
+    });
+  }
+
+  void _confirmTrumpSuit() {
+    if (!_myTurn || _phase != 'trump_selection') return;
+    _feedback();
+    widget.socket.emit('select_trump', {
+      'roomCode': widget.roomCode, 'suit': _selectedSuit,
     });
   }
   void _passBid() {
@@ -734,7 +742,7 @@ class _TableScreenState extends State<TableScreen> {
         ),
         Positioned(bottom: 7, left: 0, right: 0, child: Center(
           child: Text(
-            _phase == 'bidding' ? 'مرحلة الطلب' : _phase == 'playing' || _phase == 'trick_resolving' ? 'الأكلة الحالية' : _phase == 'round_result' ? 'نتيجة الجولة' : 'الطاولة',
+            _phase == 'bidding' ? 'مرحلة الطلب' : _phase == 'trump_selection' ? 'اختيار الحكم' : _phase == 'playing' || _phase == 'trick_resolving' ? 'الأكلة الحالية' : _phase == 'round_result' ? 'نتيجة الجولة' : 'الطاولة',
             style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold),
           ),
         )),
@@ -752,30 +760,12 @@ class _TableScreenState extends State<TableScreen> {
       decoration: BoxDecoration(color: kPanel, borderRadius: BorderRadius.circular(16), border: Border.all(color: kGold.withOpacity(.2))),
       child: Column(children: [
         Row(children: [
-          const Text('اختيار الطرنيب', style: TextStyle(color: Colors.white70, fontSize: 11)),
+          const Text('المزايدة على عدد الأكلات', style: TextStyle(color: Colors.white70, fontSize: 11)),
           const Spacer(),
-          Text(bid == null ? 'أول طلب يبدأ من 7' : 'أعلى طلب: ${bid['amount']} ${bid['symbol']}', style: const TextStyle(color: kGold, fontSize: 11)),
+          Text(bid == null ? 'أول طلب يبدأ من 7' : 'أعلى طلب: ${bid['amount']}',
+            style: const TextStyle(color: kGold, fontSize: 11)),
         ]),
-        const SizedBox(height: 6),
-        Row(
-          children: _suits.map((suit) => Expanded(child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: InkWell(
-              onTap: () => setState(() => _selectedSuit = suit),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  color: _selectedSuit == suit ? kGold : Colors.black.withOpacity(.2),
-                  borderRadius: BorderRadius.circular(9),
-                  border: Border.all(color: _selectedSuit == suit ? kGold : Colors.white12),
-                ),
-                child: Text('${_symbols[suit]}', textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 20, color: _selectedSuit == suit ? kInk : (suit == 'HEARTS' || suit == 'DIAMONDS' ? Colors.redAccent : Colors.white))),
-              ),
-            ),
-          ))).toList(),
-        ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Row(children: [
           Expanded(child: Wrap(
             spacing: 5,
@@ -804,10 +794,79 @@ class _TableScreenState extends State<TableScreen> {
                 [0, 1, 2, 3].where((seat) => seat != dealer).every(passed.contains);
             return TextButton(
               onPressed: _myTurn && !forcedOpen ? _passBid : null,
-              child: Text(forcedOpen ? 'طلب إجباري 7' : 'تمرير', style: const TextStyle(color: Colors.white70)),
+              child: Text(forcedOpen ? 'طلب إجباري 7' : 'تمرير',
+                style: const TextStyle(color: Colors.white70)),
             );
           }),
         ]),
+        const SizedBox(height: 4),
+        const Text('لون الحكم يختاره صاحب أعلى طلب بعد انتهاء المزايدة',
+          style: TextStyle(color: Colors.white38, fontSize: 9)),
+      ]),
+    );
+  }
+
+  Widget _trumpSelectionPanel() {
+    if (_phase != 'trump_selection' || _status != 'playing') return const SizedBox.shrink();
+    final bid = _state['bid'] as Map?;
+    final bidderSeat = (bid?['seat'] as num?)?.toInt() ?? -1;
+    final isMyChoice = _myTurn && bidderSeat == _mySeat;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 2, 12, 6),
+      padding: const EdgeInsets.all(11),
+      decoration: BoxDecoration(
+        color: kPanel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: kGold.withOpacity(.45), width: 1.3),
+      ),
+      child: Column(children: [
+        Text(
+          isMyChoice
+            ? 'رسا عليك الطلب ${bid?['amount'] ?? ''} — اختر لون الحكم'
+            : 'رسا الطلب ${bid?['amount'] ?? ''} على ${_playerName(bidderSeat)} • بانتظار اختيار الحكم',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: kGold, fontSize: 12, fontWeight: FontWeight.bold),
+        ),
+        if (isMyChoice) ...[
+          const SizedBox(height: 9),
+          Row(
+            children: _suits.map((suit) => Expanded(child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: InkWell(
+                onTap: () => setState(() => _selectedSuit = suit),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _selectedSuit == suit ? kGold : Colors.black.withOpacity(.2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _selectedSuit == suit ? kGold : Colors.white24),
+                  ),
+                  child: Column(children: [
+                    Text(_symbols[suit]!, style: TextStyle(
+                      fontSize: 22,
+                      color: _selectedSuit == suit ? kInk :
+                        (suit == 'HEARTS' || suit == 'DIAMONDS' ? Colors.redAccent : Colors.white),
+                    )),
+                    Text(_suitNames[suit]!, style: TextStyle(
+                      fontSize: 9,
+                      color: _selectedSuit == suit ? kInk : Colors.white70,
+                    )),
+                  ]),
+                ),
+              ),
+            ))).toList(),
+          ),
+          const SizedBox(height: 9),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _confirmTrumpSuit,
+              style: ElevatedButton.styleFrom(backgroundColor: kGold, foregroundColor: kInk),
+              child: const Text('تأكيد الحكم وبدء اللعب'),
+            ),
+          ),
+        ],
       ]),
     );
   }
@@ -1040,6 +1099,7 @@ class _TableScreenState extends State<TableScreen> {
                 ]),
               ),
             _biddingPanel(),
+            _trumpSelectionPanel(),
             _handArea(),
             _reactionButton(),
             if (_phase == 'playing' && _status == 'playing' && _myTurn)
