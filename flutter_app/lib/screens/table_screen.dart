@@ -1139,7 +1139,7 @@ class _TableScreenState extends State<TableScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text('الفريق الآخر: اللاعبان المتبقيان', style: TextStyle(color: Colors.white45, fontSize: 9)),
+            const Text('الفريق الآخر: اللاعبان المتبقيان', style: TextStyle(color: Colors.white54, fontSize: 9)),
             const SizedBox(height: 8),
             Wrap(spacing: 6, children: [
               ChoiceChip(label: const Text('عشوائي'), selected: _dealMode == 'random', selectedColor: const Color(0xFFFFC928), onSelected: (_) => _selectDealMode('random')),
@@ -1334,18 +1334,27 @@ class _TableScreenState extends State<TableScreen> {
                   SizedBox(
                     width: 116,
                     child: Row(children: [
-                      Container(
-                        width: 48, height: 48,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: const Color(0xFF252525),
-                          border: Border.all(color: const Color(0xFFFFC928), width: 2.5),
-                          boxShadow: const [BoxShadow(color: Color(0x55FFC928), blurRadius: 9)],
+                      Column(mainAxisSize: MainAxisSize.min, children: [
+                        Container(
+                          width: 48, height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFF252525),
+                            border: Border.all(color: const Color(0xFFFFC928), width: 2.5),
+                            boxShadow: const [BoxShadow(color: Color(0x55FFC928), blurRadius: 9)],
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(_playerAvatar(_mySeat), style: const TextStyle(fontSize: 27)),
                         ),
-                        alignment: Alignment.center,
-                        child: Text(_playerAvatar(_mySeat), style: const TextStyle(fontSize: 27)),
-                      ),
-                      const SizedBox(width: 7),
+                        const SizedBox(height: 2),
+                        SizedBox(
+                          width: 72,
+                          child: Text(widget.playerName, maxLines: 1, overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white70, fontSize: 9)),
+                        ),
+                      ]),
+                      const SizedBox(width: 5),
                       InkWell(
                         onTap: _openReactions,
                         borderRadius: BorderRadius.circular(9),
