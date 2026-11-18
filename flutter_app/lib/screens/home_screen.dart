@@ -3,10 +3,10 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'table_screen.dart';
 
-const Color kInk = Color(0xFF071A18);
-const Color kFelt = Color(0xFF0D4938);
-const Color kGold = Color(0xFFE2BD68);
-const Color kPanel = Color(0xFF12372F);
+const Color kInk = Color(0xFF151515);
+const Color kFelt = Color(0xFF0C9B38);
+const Color kGold = Color(0xFFFFC928);
+const Color kPanel = Color(0xFF202020);
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
