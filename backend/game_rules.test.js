@@ -63,6 +63,16 @@ test('selected partner determines opposing teams', () => {
   assert.deepEqual([0, 1, 2, 3].map(seat => teamForSeat(3, seat)), [0, 1, 1, 0]);
 });
 
+test('each partnership always receives one shared team score index', () => {
+  for (const partnerSeat of [1, 2, 3]) {
+    const teams = [0, 1, 2, 3].map(seat => teamForSeat(partnerSeat, seat));
+    assert.equal(teams[0], teams[partnerSeat]);
+    const opponents = [0, 1, 2, 3].filter(seat => seat !== 0 && seat !== partnerSeat);
+    assert.equal(teams[opponents[0]], teams[opponents[1]]);
+    assert.notEqual(teams[0], teams[opponents[0]]);
+  }
+});
+
 test('dealer is forced to open at seven only after all other three seats passed', () => {
   assert.equal(mustDealerOpenBid(0, 0, [1, 2, 3], null), true);
   assert.equal(mustDealerOpenBid(0, 0, [1, 2], null), false);
@@ -84,6 +94,18 @@ test('follow-suit rule disallows off-suit while led suit is available', () => {
   const trick = [{ seat: 1, card: { code: 'K-SPADES', suit: 'SPADES', rank: 13 } }];
   assert.deepEqual(getLegalCards(hand, trick).map(card => card.code), ['A-SPADES']);
   assert.deepEqual(getLegalCards([{ code: '2-HEARTS', suit: 'HEARTS', rank: 2 }], trick).map(card => card.code), ['2-HEARTS']);
+});
+
+test('a player with no card in the led suit may legally play any card', () => {
+  const hand = [
+    { code: '2-HEARTS', suit: 'HEARTS', rank: 2 },
+    { code: 'A-DIAMONDS', suit: 'DIAMONDS', rank: 14 },
+    { code: '7-CLUBS', suit: 'CLUBS', rank: 7 },
+  ];
+  const trick = [{ seat: 1, card: { code: 'K-SPADES', suit: 'SPADES', rank: 13 } }];
+  assert.deepEqual(getLegalCards(hand, trick).map(card => card.code), [
+    '2-HEARTS', 'A-DIAMONDS', '7-CLUBS',
+  ]);
 });
 
 test('trick winner respects led suit, trump and card rank', () => {
