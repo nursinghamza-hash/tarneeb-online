@@ -584,7 +584,6 @@ class _TableScreenState extends State<TableScreen> {
   );
 
   Widget _scoreboard() {
-    final ownScore = _scores.length > _myTeam ? _scores[_myTeam] : 0;
     final otherTeam = 1 - _myTeam;
     final otherScore = _scores.length > otherTeam ? _scores[otherTeam] : 0;
     final ownTricks = _tricks.length > _myTeam ? _tricks[_myTeam] : 0;
@@ -634,7 +633,7 @@ class _TableScreenState extends State<TableScreen> {
     return LayoutBuilder(builder: (context, constraints) {
       final maxWidth = constraints.maxWidth;
       final maxHeight = constraints.maxHeight;
-      final boardWidth = math.min(maxWidth - 30, maxHeight * .84).clamp(260.0, 440.0).toDouble();
+      final boardWidth = math.min(maxWidth - 30, maxHeight * .84).clamp(240.0, 440.0).toDouble();
       final boardHeight = math.min(maxHeight * .91, boardWidth * 1.22).toDouble();
       final boardLeft = (maxWidth - boardWidth) / 2;
       final boardTop = (maxHeight - boardHeight) / 2 + 8;
