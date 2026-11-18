@@ -433,7 +433,7 @@ function createRoom(socket, payload) {
     hostToken: token,
     targetScore: [31, 41, 61].includes(Number(payload.targetScore)) ? Number(payload.targetScore) : 41,
     scoringPreset: payload.scoringPreset === 'house_16_14' ? 'house_16_14' : 'jawaker',
-    partnerSeat: 2, dealMode: 'random', aiPractice: payload.aiPractice === true, reports: [],
+    partnerSeat: payload.aiPractice === true ? 2 : null, dealMode: 'random', aiPractice: payload.aiPractice === true, reports: [],
     players: [null, null, null, null],
     tricks: [0, 0], hands: null, playedCards: [], currentTrick: [], phase: 'waiting',
     dealPattern: 'one', lastTrick: [], trickTimer: null, debugEnabledSeats: new Set(),
@@ -516,6 +516,9 @@ function beginCutPhase(room) {
 function startGame(room, player) {
   if (!player || player.token !== room.hostToken || room.status !== 'waiting') return;
   if (room.players.some(p => !p)) return io.to(player.id).emit('room_error', 'تحتاج الطاولة إلى 4 لاعبين لبدء اللعب');
+  if (![1, 2, 3].includes(room.partnerSeat) || !room.players[room.partnerSeat]) {
+    return io.to(player.id).emit('room_error', 'اختر شريكك قبل بدء اللعب');
+  }
   room.scores = [0, 0];
   room.roundNumber = 1;
   beginNextDeal(room);
